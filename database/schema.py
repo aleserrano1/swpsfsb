@@ -46,9 +46,13 @@ CREATE TABLE IF NOT EXISTS client_phones (
 );
 
 CREATE TABLE IF NOT EXISTS client_addresses (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    value     TEXT    NOT NULL
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id     INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    address_line1 TEXT    NOT NULL,
+    address_line2 TEXT    NOT NULL DEFAULT '',
+    city          TEXT    NOT NULL,
+    state         TEXT    NOT NULL,
+    zip_code      TEXT    NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS services (

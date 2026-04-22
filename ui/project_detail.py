@@ -20,6 +20,20 @@ from ui.quote_form import QuoteFormDialog
 from ui.startup import PinEntryDialog
 
 
+def _format_address_lines(addr: dict) -> list[str]:
+    lines = []
+    if addr.get("line1"):
+        lines.append(addr["line1"])
+    if addr.get("line2"):
+        lines.append(addr["line2"])
+    city_state = ", ".join(filter(None, [addr.get("city"), addr.get("state")]))
+    zip_code = addr.get("zip_code", "")
+    last = f"{city_state} {zip_code}".strip() if zip_code else city_state
+    if last:
+        lines.append(last)
+    return lines
+
+
 class ProjectDetailScreen(ctk.CTkFrame):
     def __init__(self, parent, project_db_id: int, on_back, **kwargs):
         super().__init__(parent, fg_color="transparent", **kwargs)
@@ -137,7 +151,8 @@ class ProjectDetailScreen(ctk.CTkFrame):
             for phone in client.phones:
                 label(inner, phone, size=11, fg="gray").pack(anchor="w")
             for addr in client.addresses:
-                label(inner, addr, size=11, fg="gray").pack(anchor="w")
+                for line in _format_address_lines(addr):
+                    label(inner, line, size=11, fg="gray").pack(anchor="w")
 
         # Job site
         section_label(scroll, "JOB SITE").pack(anchor="w", pady=(12, 4))

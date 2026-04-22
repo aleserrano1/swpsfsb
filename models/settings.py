@@ -15,12 +15,39 @@ def set_value(key: str, value: str) -> None:
         )
 
 
+def get_company_address(company: str) -> dict:
+    """Returns the structured address dict for a company."""
+    return {
+        "line1":    get(f"{company}_address_line1"),
+        "line2":    get(f"{company}_address_line2"),
+        "city":     get(f"{company}_address_city"),
+        "state":    get(f"{company}_address_state"),
+        "zip_code": get(f"{company}_address_zip"),
+    }
+
+
+def format_address(addr: dict) -> str:
+    """Formats a structured address dict into a display string (ReportLab <br/> for newlines)."""
+    parts = []
+    if addr.get("line1"):
+        parts.append(addr["line1"])
+    if addr.get("line2"):
+        parts.append(addr["line2"])
+    city_state_zip = ", ".join(filter(None, [addr.get("city"), addr.get("state")]))
+    if addr.get("zip_code"):
+        city_state_zip = f"{city_state_zip} {addr['zip_code']}".strip()
+    if city_state_zip:
+        parts.append(city_state_zip)
+    return "<br/>".join(parts)
+
+
 def get_company_info(company: str) -> dict:
     """Returns dict with president, address, phone for 'sfsb' or 'swp'."""
+    addr = get_company_address(company)
     return {
         "name": "Santa Fe Style Builders" if company == "sfsb" else "Southwest Plastering Co.",
         "president": get(f"{company}_president"),
-        "address": get(f"{company}_address"),
+        "address": format_address(addr),
         "phone": get(f"{company}_phone"),
     }
 

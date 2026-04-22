@@ -37,12 +37,35 @@ class SettingsScreen(ctk.CTkFrame):
 
         for field_key, placeholder in [
             (f"{company}_president", "President Name"),
-            (f"{company}_address", "Company Address"),
-            (f"{company}_phone", "Phone Number"),
+            (f"{company}_phone",     "Phone Number"),
         ]:
             section_label(frame, placeholder.upper()).pack(anchor="w", padx=16, pady=(4, 0))
             e = entry(frame, placeholder=placeholder, width=380)
             e.pack(anchor="w", padx=16, pady=(0, 4))
+            e.insert(0, get(field_key))
+            self._fields[field_key] = e
+
+        # Structured address fields
+        section_label(frame, "COMPANY ADDRESS").pack(anchor="w", padx=16, pady=(8, 2))
+
+        for field_key, placeholder, width in [
+            (f"{company}_address_line1", "Address Line 1",          380),
+            (f"{company}_address_line2", "Address Line 2 (optional)", 380),
+        ]:
+            e = entry(frame, placeholder=placeholder, width=width)
+            e.pack(anchor="w", padx=16, pady=(0, 4))
+            e.insert(0, get(field_key))
+            self._fields[field_key] = e
+
+        city_row = ctk.CTkFrame(frame, fg_color="transparent")
+        city_row.pack(anchor="w", padx=16, pady=(0, 4))
+        for field_key, placeholder, width in [
+            (f"{company}_address_city",  "City",  200),
+            (f"{company}_address_state", "State",  80),
+            (f"{company}_address_zip",   "Zip",    100),
+        ]:
+            e = entry(city_row, placeholder=placeholder, width=width)
+            e.pack(side="left", padx=(0, 6))
             e.insert(0, get(field_key))
             self._fields[field_key] = e
 

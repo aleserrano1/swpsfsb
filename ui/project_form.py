@@ -113,6 +113,24 @@ class ProjectFormScreen(ctk.CTkFrame):
             if not any(n.strip() for n in cd["names"]):
                 show_error("Missing Client Name", "Each client must have at least one name.")
                 return
+            for addr in cd["addresses"]:
+                if not addr.get("line1"):
+                    show_error("Incomplete Address", "Address Line 1 is required.")
+                    return
+                if not addr.get("city"):
+                    show_error("Incomplete Address", "City is required.")
+                    return
+                if not addr.get("state"):
+                    show_error("Incomplete Address", "State is required.")
+                    return
+                zip_val = addr.get("zip_code", "")
+                if not zip_val:
+                    show_error("Incomplete Address", "Zip Code is required.")
+                    return
+                import re
+                if not re.fullmatch(r"\d{5}(-\d{4})?", zip_val):
+                    show_error("Invalid Zip Code", f"'{zip_val}' is not a valid zip code (e.g. 87501 or 87501-1234).")
+                    return
 
         proj = create_project(
             company=self._company_var.get(),
@@ -141,7 +159,8 @@ class ClientBlock(ctk.CTkFrame):
         super().__init__(parent, corner_radius=8, **kwargs)
         self._on_remove = on_remove
         self._index = index
-        self._field_rows = {"names": [], "emails": [], "phones": [], "addresses": []}
+        self._field_rows = {"names": [], "emails": [], "phones": []}
+        self._address_blocks = []  # list of dicts: {line1, line2, city, state, zip_code} -> entry widgets
         self._build_ui()
 
     def _build_ui(self):
@@ -156,12 +175,13 @@ class ClientBlock(ctk.CTkFrame):
         self._fields_frame.pack(fill="x", padx=12, pady=(4, 8))
 
         for field_key, label_text, placeholder in [
-            ("names",     "Names",     "Full name"),
-            ("emails",    "Emails",    "Email address"),
-            ("phones",    "Phones",    "Phone number"),
-            ("addresses", "Addresses", "Street address"),
+            ("names",  "Names",  "Full name"),
+            ("emails", "Emails", "Email address"),
+            ("phones", "Phones", "Phone number"),
         ]:
             self._build_multi_field(field_key, label_text, placeholder)
+
+        self._build_address_section()
 
     def _build_multi_field(self, key: str, label_text: str, placeholder: str):
         row_container = ctk.CTkFrame(self._fields_frame, fg_color="transparent")
@@ -176,21 +196,82 @@ class ClientBlock(ctk.CTkFrame):
         entries_frame = ctk.CTkFrame(row_container, fg_color="transparent")
         entries_frame.pack(fill="x")
 
-        # Start with one entry
         e = entry(entries_frame, placeholder=placeholder, width=300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
 
     def _add_field(self, key: str, placeholder: str, row_container):
-        # Find the entries_frame (second child of row_container)
         children = row_container.winfo_children()
         entries_frame = children[-1]
         e = entry(entries_frame, placeholder=placeholder, width=300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
 
+    def _build_address_section(self):
+        container = ctk.CTkFrame(self._fields_frame, fg_color="transparent")
+        container.pack(fill="x", pady=2)
+
+        header_row = ctk.CTkFrame(container, fg_color="transparent")
+        header_row.pack(fill="x")
+        section_label(header_row, "ADDRESS").pack(side="left")
+        button(header_row, "+ Add Address", lambda: self._add_address_block(),
+               width=120, height=22, fg_color="#555", hover_color="#333").pack(side="left", padx=8)
+
+        self._addresses_container = ctk.CTkFrame(container, fg_color="transparent")
+        self._addresses_container.pack(fill="x")
+
+        self._add_address_block()
+
+    def _add_address_block(self):
+        block = ctk.CTkFrame(self._addresses_container, fg_color=("gray85", "gray25"), corner_radius=6)
+        block.pack(fill="x", pady=3)
+
+        inner = ctk.CTkFrame(block, fg_color="transparent")
+        inner.pack(fill="x", padx=8, pady=6)
+
+        widgets = {}
+
+        e1 = entry(inner, placeholder="Address Line 1 *", width=340)
+        e1.pack(anchor="w", pady=1)
+        widgets["line1"] = e1
+
+        e2 = entry(inner, placeholder="Address Line 2 (optional)", width=340)
+        e2.pack(anchor="w", pady=1)
+        widgets["line2"] = e2
+
+        city_row = ctk.CTkFrame(inner, fg_color="transparent")
+        city_row.pack(anchor="w", pady=1)
+        e_city = entry(city_row, placeholder="City *", width=190)
+        e_city.pack(side="left", padx=(0, 6))
+        widgets["city"] = e_city
+        e_state = entry(city_row, placeholder="State *", width=80)
+        e_state.pack(side="left", padx=(0, 6))
+        widgets["state"] = e_state
+        e_zip = entry(city_row, placeholder="Zip Code *", width=110)
+        e_zip.pack(side="left")
+        widgets["zip_code"] = e_zip
+
+        idx = len(self._address_blocks)
+        button(inner, "Remove Address",
+               lambda b=block, i=idx: self._remove_address_block(b),
+               width=130, height=22, fg_color="#e53935", hover_color="#b71c1c").pack(anchor="w", pady=(4, 0))
+
+        self._address_blocks.append({"frame": block, "widgets": widgets})
+
+    def _remove_address_block(self, block_frame):
+        self._address_blocks = [b for b in self._address_blocks if b["frame"] is not block_frame]
+        block_frame.destroy()
+
     def get_data(self) -> dict:
         result = {}
         for key, rows in self._field_rows.items():
             result[key] = [e.get() for _, e in rows]
+
+        addresses = []
+        for block in self._address_blocks:
+            w = block["widgets"]
+            addr = {k: w[k].get().strip() for k in w}
+            if any(addr.values()):
+                addresses.append(addr)
+        result["addresses"] = addresses
         return result

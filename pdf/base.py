@@ -126,6 +126,20 @@ def build_header_elements(company_info: dict, doc_type: str, project_id: str, st
     return elements
 
 
+def _address_lines(addr: dict) -> list[str]:
+    lines = []
+    if addr.get("line1"):
+        lines.append(addr["line1"])
+    if addr.get("line2"):
+        lines.append(addr["line2"])
+    city_state = ", ".join(filter(None, [addr.get("city"), addr.get("state")]))
+    zip_code = addr.get("zip_code", "")
+    last = f"{city_state} {zip_code}".strip() if zip_code else city_state
+    if last:
+        lines.append(last)
+    return lines
+
+
 def build_client_block(clients, job_site: str, styles: dict):
     """Returns flowables for client + job site info."""
     elements = []
@@ -140,7 +154,8 @@ def build_client_block(clients, job_site: str, styles: dict):
         for phone in client.phones:
             elements.append(Paragraph(phone, styles["body"]))
         for addr in client.addresses:
-            elements.append(Paragraph(addr, styles["body"]))
+            for line in _address_lines(addr):
+                elements.append(Paragraph(line, styles["body"]))
         if i < len(clients) - 1:
             elements.append(Spacer(1, 4))
 
