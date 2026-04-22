@@ -1,78 +1,69 @@
-# Construction Project Manager
+# Construction Project Manager (SWPSFSB)
 
-Desktop app for two construction companies (Santa Fe Style Builders, Southwest Plastering Co.) to track projects, record services/payments, and generate PDF documents (proposals, invoices, quotes, master files).
+Desktop app for two construction companies — **Santa Fe Style Builders** (`sfsb`) and **Southwest Plastering Co.** (`swp`) — to manage projects, clients, services, payments, and generate PDFs (proposals, invoices, receipts, master files).
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| GUI | CustomTkinter (CTk) |
-| Database | SQLite3 — WAL mode, thread-local connections |
-| PDF | ReportLab (Platypus) |
+| Layer | Library / Version |
+|-------|------------------|
+| GUI | CustomTkinter 5.2.2 (dark mode, `ctk.CTk`) |
+| Database | SQLite3 (stdlib) — WAL mode, thread-local connections |
+| PDFs | ReportLab 4.4.10 + Pillow 12.2.0 |
 | Config | JSON at `~/.swpsfsb/config.json` |
+| Python | 3.13, venv at `venv/` |
 
-No ORM. No web framework. No logging library.
-
-## Project Structure
+## Key Directories
 
 ```
-SWPSFSB/
-├── main.py              # Entry point; startup/DB connection logic
-├── config.py            # JSON config I/O (db_path, base_output_dir)
-├── database/
-│   ├── connection.py    # Thread-local SQLite manager; query/transaction helpers
-│   └── schema.py        # CREATE TABLE statements; initialize() called on DB open
-├── models/              # Data access + business logic; one file per entity
-│   ├── project.py       # Includes get_financials() — the financial aggregation hub
-│   ├── client.py        # Multi-valued fields (names, emails, phones, addresses)
-│   ├── service.py       # original_service / order_change types
-│   ├── payment.py       # paid / unpaid; enforces payment-total ceiling
-│   └── settings.py      # Key-value store for PIN, company info
-├── pdf/
-│   ├── base.py          # Shared builders: header, client block, totals, footer
-│   ├── proposal.py      # Proposal + Quote (is_quote=True flag)
-│   ├── invoice.py       # Invoice + PAID receipt (is_receipt=True flag)
-│   └── master.py        # Chronological summary PDF
-├── ui/
-│   ├── app.py           # Root window; sidebar nav; content-area swapping
-│   ├── startup.py       # DB connect/create screen; PIN dialogs
-│   ├── theme.py         # COLOR_THEMES, COMPANY_LABELS, STATUS_COLORS constants
-│   ├── widgets.py       # label/entry/button/show_error helper factories
-│   ├── project_list.py  # Searchable card list
-│   ├── project_form.py  # Create project form; ClientBlock dynamic sub-forms
-│   ├── project_detail.py# Tabbed detail: Overview / Services / Payments
-│   ├── service_form.py  # Add service/change-order dialog
-│   ├── payment_form.py  # Add payment + auto-generate invoice dialog
-│   ├── quote_form.py    # Generate quote dialog (no DB write)
-│   └── settings_screen.py
-└── assets/
-    ├── sfsb_logo.png    # Replace with real logo
-    └── swp_logo.png     # Replace with real logo
+main.py              Entry point; DB auto-connect or startup screen
+config.py            Load/save ~/.swpsfsb/config.json (db_path, base_output_dir)
+database/
+  connection.py      Thread-local SQLite pool; query(), query_one(), transaction()
+  schema.py          Table definitions; initialize() creates all tables
+models/              One file per entity: project, client, service, payment, settings
+  project.py         get_financials() — single source of truth for all money calcs
+  settings.py        KV store in DB; company info (name/president/address/phone), PIN
+pdf/
+  base.py            Shared styles, builders, make_doc(), footer_callback()
+  proposal.py        Proposal + Quote PDFs
+  invoice.py         Invoice + Paid Receipt PDFs
+  master.py          Project Master File PDF (chronological financial activity)
+ui/
+  app.py             Root CTkFrame; sidebar nav; content-area swap
+  theme.py           COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS/COLORS
+  widgets.py         label(), button(), entry(), section_label(), show_error(), etc.
+  startup.py         DB selection + PIN setup on first launch
+  project_detail.py  Tabbed detail view (Overview / Services / Payments)
+assets/              sfsb_logo.png, swp_logo.png (used in PDF headers)
 ```
 
 ## Adding New Features or Fixing Bugs
-**IMPORTANT** When the user clicks on the calendar in weekly view to add a new chore, the time of the new chore doesn’t reflect the cell the user clicked.
 
-## Run
+**IMPORTANT**: When you work on a new feature or bug, create a git branch first. Then work on changes in that branch for the remainder of the session.
+
+## Running the App
 
 ```bash
+# Activate venv first (Windows)
+venv\Scripts\activate
+
 python main.py
 ```
 
-First run shows `StartupWindow` to create or connect to a `.db` file. Subsequent runs auto-connect to the last-used path stored in `~/.swpsfsb/config.json`.
+No build step. No test suite.
 
-## Key Domain Rules (enforce in models, not UI)
+## PDF Output Layout
 
-- **Payment ceiling** — `models/payment.py:48–69`: raises `ValueError` if payment would exceed project total.
-- **Proposal PIN protection** — `ui/project_detail.py:319–329`: checks for existing proposal file; prompts PIN before regenerating.
-- **Project ID** — `models/project.py:29–32`: `PRJ-{COUNT(*)+1:04d}` — sequential, not UUID.
-- **Financial source of truth** — `models/project.py:134–157` (`get_financials()`): always recompute from DB; never cache totals.
-- **Quotes not persisted** — `ui/quote_form.py:68–69`: project object mutated temporarily; no DB write.
+All PDFs land in `{base_output_dir}/{project_id}/`:
+
+| File | Trigger |
+|------|---------|
+| `{project_id}-proposal.pdf` | Mark as Binding |
+| `QUOTE-{project_id}-{ts}.pdf` | Generate Quote |
+| `INV-{project_id}-{id:04d}.pdf` | Add Payment |
+| `REC-{project_id}-{id:04d}.pdf` | Mark Payment Paid |
+| `MASTER-{project_id}.pdf` | Generate Master File |
 
 ## Additional Documentation
 
-Check these files when working on the relevant area:
-
-| Topic | File |
-|-------|------|
-| Architectural patterns & design decisions | `.claude/docs/architectural_patterns.md` |
+- [Architectural Patterns](.claude/docs/architectural_patterns.md) — DB access, model shape, financial aggregation, UI navigation, dialog variants, PDF pipeline, widget helpers, error handling, two-company pattern

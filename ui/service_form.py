@@ -17,14 +17,15 @@ class ServiceFormDialog(ctk.CTkToplevel):
             "original_service": "Add Service",
             "order_change": "Add Change Order",
         }
-        self.title(title_map.get(service_type, "Add Service"))
-        self.geometry("400x260")
+        self._title_text = title_map.get(service_type, "Add Service")
+        self.title(self._title_text)
+        self.geometry("400x320")
         self.resizable(False, False)
         self.grab_set()
         self._build_ui()
 
     def _build_ui(self):
-        label(self, self.title(), bold=True, size=16).pack(pady=(20, 8))
+        label(self, self._title_text, bold=True, size=16).pack(pady=(20, 8))
 
         section_label(self, "DESCRIPTION").pack(anchor="w", padx=24, pady=(4, 2))
         self._desc = ctk.CTkTextbox(self, width=350, height=80, corner_radius=8)
