@@ -1,6 +1,10 @@
 """Main application window with sidebar navigation."""
+import os
 import customtkinter as ctk
 
+import config
+from database import connection as db
+from database.schema import initialize
 from ui.project_list import ProjectListScreen
 from ui.project_form import ProjectFormScreen
 from ui.project_detail import ProjectDetailScreen
@@ -13,11 +17,31 @@ class App(ctk.CTk):
         self.title("Construction Project Manager")
         self.geometry("1100x720")
         self.minsize(900, 600)
-
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-
         self._build_layout()
+        self._start()
+
+    def _start(self):
+        """Connect to DB or show startup screen. Always runs inside mainloop."""
+        cfg = config.load()
+        db_path = cfg.get("db_path", "")
+
+        if db_path and os.path.exists(db_path):
+            try:
+                db.set_path(db_path)
+                initialize()
+                self._show_projects()
+                return
+            except Exception:
+                pass
+
+        # No valid DB — hide main window and show startup dialog
+        self.withdraw()
+        from ui.startup import StartupWindow
+        StartupWindow(self, on_success=self._on_db_ready)
+
+    def _on_db_ready(self):
+        """Called by StartupWindow after a DB is selected/created."""
+        self.deiconify()
         self._show_projects()
 
     def _build_layout(self):

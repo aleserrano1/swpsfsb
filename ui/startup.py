@@ -1,8 +1,6 @@
 """Startup screen: connect to existing DB or create new one."""
 import os
-import tkinter as tk
 import tkinter.filedialog as fd
-import tkinter.messagebox as mb
 import customtkinter as ctk
 
 import config
@@ -15,7 +13,7 @@ from ui.widgets import label, button, show_error
 class StartupWindow(ctk.CTkToplevel):
     def __init__(self, master, on_success):
         super().__init__(master)
-        self.on_success = on_success
+        self._on_success = on_success
         self.title("Construction Manager — Setup")
         self.geometry("460x340")
         self.resizable(False, False)
@@ -24,7 +22,20 @@ class StartupWindow(ctk.CTkToplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _on_close(self):
+        # Destroy the whole app when the user dismisses setup without completing.
         self.master.destroy()
+
+    def _finish(self):
+        """Destroy this dialog then hand off to App via after_idle.
+
+        Scheduling with after_idle lets CustomTkinter's own cleanup
+        after() callbacks (e.g. _windows_set_titlebar_icon) fire while
+        this widget still exists, preventing 'invalid command name' errors.
+        """
+        on_success = self._on_success
+        master = self.master
+        self.destroy()
+        master.after_idle(on_success)
 
     def _build_ui(self):
         ctk.CTkLabel(
@@ -60,12 +71,10 @@ class StartupWindow(ctk.CTkToplevel):
         if not path:
             return
 
-        # Ask for base output directory
         base_dir = fd.askdirectory(title="Select Base Output Directory for Project Files")
         if not base_dir:
             return
 
-        # Ask for PIN
         pin = self._ask_pin()
         if pin is None:
             return
@@ -78,8 +87,7 @@ class StartupWindow(ctk.CTkToplevel):
             cfg["db_path"] = path
             cfg["base_output_dir"] = base_dir
             config.save(cfg)
-            self.destroy()
-            self.on_success()
+            self._finish()
         except Exception as e:
             show_error("Error", f"Failed to create database:\n{e}")
 
@@ -93,8 +101,7 @@ class StartupWindow(ctk.CTkToplevel):
             cfg = config.load()
             cfg["db_path"] = path
             config.save(cfg)
-            self.destroy()
-            self.on_success()
+            self._finish()
         except Exception as e:
             show_error("Error", f"Failed to open database:\n{e}")
 
@@ -139,7 +146,7 @@ class PinSetupDialog(ctk.CTkToplevel):
 
 
 class PinEntryDialog(ctk.CTkToplevel):
-    """Prompt the user to enter the current PIN. Returns the entered value."""
+    """Prompt the user to enter the current PIN."""
     def __init__(self, parent, prompt="Enter PIN to continue:"):
         super().__init__(parent)
         self.result = None
