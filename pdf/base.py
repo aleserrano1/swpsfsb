@@ -140,7 +140,7 @@ def _address_lines(addr: dict) -> list[str]:
     return lines
 
 
-def build_client_block(clients, job_site: str, styles: dict):
+def build_client_block(clients, job_site: dict, styles: dict):
     """Returns flowables for client + job site info."""
     elements = []
     elements.append(Paragraph("CLIENT INFORMATION", styles["label"]))
@@ -161,7 +161,9 @@ def build_client_block(clients, job_site: str, styles: dict):
 
     elements.append(Spacer(1, 6))
     elements.append(Paragraph("JOB SITE", styles["label"]))
-    elements.append(Paragraph(job_site or "—", styles["body"]))
+    js_lines = _address_lines(job_site) if job_site else []
+    for line in (js_lines or ["—"]):
+        elements.append(Paragraph(line, styles["body"]))
     return elements
 
 

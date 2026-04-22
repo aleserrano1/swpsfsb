@@ -40,8 +40,22 @@ class ProjectFormScreen(ctk.CTkFrame):
 
         # Job Site
         section_label(scroll, "JOB SITE").pack(anchor="w", pady=(4, 2))
-        self._job_site = entry(scroll, placeholder="Job site address", width=400)
-        self._job_site.pack(anchor="w", pady=(0, 8))
+        job_site_frame = ctk.CTkFrame(scroll, fg_color=("gray85", "gray25"), corner_radius=6)
+        job_site_frame.pack(anchor="w", pady=(0, 8))
+        js_inner = ctk.CTkFrame(job_site_frame, fg_color="transparent")
+        js_inner.pack(fill="x", padx=8, pady=6)
+        self._js_line1 = entry(js_inner, placeholder="Address Line 1 *", width=360)
+        self._js_line1.pack(anchor="w", pady=1)
+        self._js_line2 = entry(js_inner, placeholder="Address Line 2 (optional)", width=360)
+        self._js_line2.pack(anchor="w", pady=1)
+        js_city_row = ctk.CTkFrame(js_inner, fg_color="transparent")
+        js_city_row.pack(anchor="w", pady=1)
+        self._js_city = entry(js_city_row, placeholder="City *", width=190)
+        self._js_city.pack(side="left", padx=(0, 6))
+        self._js_state = entry(js_city_row, placeholder="State *", width=80)
+        self._js_state.pack(side="left", padx=(0, 6))
+        self._js_zip = entry(js_city_row, placeholder="Zip Code *", width=110)
+        self._js_zip.pack(side="left")
 
         # Tax rate
         row = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -99,7 +113,9 @@ class ProjectFormScreen(ctk.CTkFrame):
         block.destroy()
 
     def _save(self):
-        # Validate
+        import re
+
+        # Validate tax rate
         tax_str = self._tax_rate.get().strip()
         try:
             tax = float(tax_str) if tax_str else 0.0
@@ -107,7 +123,36 @@ class ProjectFormScreen(ctk.CTkFrame):
             show_error("Invalid Input", "Tax rate must be a number.")
             return
 
-        # Validate at least one client with at least one name
+        # Validate job site
+        js_line1 = self._js_line1.get().strip()
+        js_city  = self._js_city.get().strip()
+        js_state = self._js_state.get().strip()
+        js_zip   = self._js_zip.get().strip()
+        if not js_line1:
+            show_error("Incomplete Job Site", "Job Site Address Line 1 is required.")
+            return
+        if not js_city:
+            show_error("Incomplete Job Site", "Job Site City is required.")
+            return
+        if not js_state:
+            show_error("Incomplete Job Site", "Job Site State is required.")
+            return
+        if not js_zip:
+            show_error("Incomplete Job Site", "Job Site Zip Code is required.")
+            return
+        if not re.fullmatch(r"\d{5}(-\d{4})?", js_zip):
+            show_error("Invalid Job Site Zip", f"'{js_zip}' is not a valid zip code (e.g. 87501 or 87501-1234).")
+            return
+
+        job_site = {
+            "line1":    js_line1,
+            "line2":    self._js_line2.get().strip(),
+            "city":     js_city,
+            "state":    js_state,
+            "zip_code": js_zip,
+        }
+
+        # Validate clients
         all_client_data = [f.get_data() for f in self._client_frames]
         for cd in all_client_data:
             if not any(n.strip() for n in cd["names"]):
@@ -127,14 +172,13 @@ class ProjectFormScreen(ctk.CTkFrame):
                 if not zip_val:
                     show_error("Incomplete Address", "Zip Code is required.")
                     return
-                import re
                 if not re.fullmatch(r"\d{5}(-\d{4})?", zip_val):
                     show_error("Invalid Zip Code", f"'{zip_val}' is not a valid zip code (e.g. 87501 or 87501-1234).")
                     return
 
         proj = create_project(
             company=self._company_var.get(),
-            job_site=self._job_site.get().strip(),
+            job_site=job_site,
             tax_rate=tax,
             color_theme=self._color_var.get(),
         )

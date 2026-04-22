@@ -122,8 +122,14 @@ class ProjectListScreen(ctk.CTkFrame):
         label(content, client_str, size=12, fg="gray").pack(anchor="w", pady=(2, 0))
 
         # Row 3: job site
-        if proj.job_site:
-            label(content, f"Job Site: {proj.job_site}", size=11, fg="gray").pack(anchor="w")
+        js = proj.job_site
+        js_parts = [p for p in [
+            js.get("line1"), js.get("line2"),
+            ", ".join(filter(None, [js.get("city"), js.get("state")])),
+            js.get("zip_code"),
+        ] if p]
+        if js_parts:
+            label(content, f"Job Site: {', '.join(js_parts)}", size=11, fg="gray").pack(anchor="w")
 
         # Click area
         for widget in [content, row1]:

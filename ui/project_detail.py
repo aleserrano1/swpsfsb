@@ -157,7 +157,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
         # Job site
         section_label(scroll, "JOB SITE").pack(anchor="w", pady=(12, 4))
         ctk.CTkFrame(scroll, corner_radius=8, fg_color=("gray90", "gray20")).pack(fill="x", pady=2)
-        label(scroll, self._project.job_site or "—", size=12).pack(anchor="w", padx=4)
+        js_lines = _format_address_lines(self._project.job_site)
+        for line in (js_lines or ["—"]):
+            label(scroll, line, size=12).pack(anchor="w", padx=4)
 
         # Financial summary
         section_label(scroll, "FINANCIAL SUMMARY").pack(anchor="w", pady=(16, 4))

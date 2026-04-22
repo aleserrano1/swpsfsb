@@ -8,7 +8,7 @@ class Project:
     id: int
     project_id: str
     company: str
-    job_site: str
+    job_site: dict
     tax_rate: float
     down_payment: float
     status: str
@@ -25,7 +25,13 @@ def _row_to_project(row) -> Project:
         id=row["id"],
         project_id=row["project_id"],
         company=row["company"],
-        job_site=row["job_site"],
+        job_site={
+            "line1":    row["job_site_line1"],
+            "line2":    row["job_site_line2"],
+            "city":     row["job_site_city"],
+            "state":    row["job_site_state"],
+            "zip_code": row["job_site_zip"],
+        },
         tax_rate=row["tax_rate"],
         down_payment=row["down_payment"],
         status=row["status"],
@@ -40,24 +46,32 @@ def _row_to_project(row) -> Project:
 
 def create(
     company: str,
-    job_site: str,
+    job_site: dict,
     tax_rate: float,
     color_theme: str = "blue",
     down_payment: float = 0.0,
 ) -> Project:
     now = datetime.now().isoformat(timespec="seconds")
     with db.transaction() as cur:
-        # Determine next sequential ID
         cur.execute("SELECT COUNT(*) as cnt FROM projects")
         count = cur.fetchone()["cnt"]
         new_num = count + 1
         project_id = f"PRJ-{new_num:04d}"
         cur.execute(
             """INSERT INTO projects
-               (project_id, company, job_site, tax_rate, down_payment, status,
-                color_theme, created_at)
-               VALUES (?,?,?,?,?,'non_binding',?,?)""",
-            (project_id, company, job_site, tax_rate, down_payment, color_theme, now),
+               (project_id, company,
+                job_site_line1, job_site_line2, job_site_city, job_site_state, job_site_zip,
+                tax_rate, down_payment, status, color_theme, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,'non_binding',?,?)""",
+            (
+                project_id, company,
+                job_site.get("line1", "").strip(),
+                job_site.get("line2", "").strip(),
+                job_site.get("city", "").strip(),
+                job_site.get("state", "").strip(),
+                job_site.get("zip_code", "").strip(),
+                tax_rate, down_payment, color_theme, now,
+            ),
         )
         row_id = cur.lastrowid
     return get_by_id(row_id)
@@ -79,17 +93,18 @@ def all_projects() -> list[Project]:
 
 
 def search(term: str) -> list[Project]:
-    """Search by project_id, job_site, or any client name."""
+    """Search by project_id, job_site fields, or any client name."""
     like = f"%{term}%"
     rows = db.query(
         """SELECT DISTINCT p.* FROM projects p
            LEFT JOIN clients c ON c.project_id = p.id
            LEFT JOIN client_names cn ON cn.client_id = c.id
            WHERE p.project_id LIKE ?
-              OR p.job_site LIKE ?
+              OR p.job_site_line1 LIKE ?
+              OR p.job_site_city LIKE ?
               OR cn.value LIKE ?
            ORDER BY p.id DESC""",
-        (like, like, like),
+        (like, like, like, like),
     )
     return [_row_to_project(r) for r in rows]
 
