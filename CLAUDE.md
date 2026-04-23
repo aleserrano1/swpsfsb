@@ -37,9 +37,25 @@ ui/
 assets/              sfsb_logo.png, swp_logo.png (used in PDF headers)
 ```
 
-## Adding New Features or Fixing Bugs
+## Git workflow requirements
 
-**IMPORTANT**: When you work on a new feature or bug, create a git branch first. Then work on changes in that branch for the remainder of the session.
+Before making any code change for a bug fix or new feature, you must first create and switch to a new git branch.
+
+Required steps:
+1. Determine whether the task is a bug fix or feature.
+2. Create a branch before editing any file.
+3. Stay on that branch for the rest of the session.
+4. Do not make code changes on main.
+
+Branch naming:
+- bug fixes: fix/<short-description>
+- features: feat/<short-description>
+
+Before editing files, run:
+- git rev-parse --abbrev-ref HEAD
+- git checkout -b <branch-name>
+
+If already on main when a bug fix or feature request starts, create the branch immediately before any edits.
 
 ## Running the App
 

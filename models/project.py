@@ -51,6 +51,18 @@ def create(
     color_theme: str = "blue",
     down_payment: float = 0.0,
 ) -> Project:
+    missing = [
+        f for f, key in [
+            ("Address Line 1", "line1"),
+            ("City", "city"),
+            ("State", "state"),
+            ("Zip Code", "zip_code"),
+        ]
+        if not job_site.get(key, "").strip()
+    ]
+    if missing:
+        raise ValueError(f"Job Site requires: {', '.join(missing)}")
+
     now = datetime.now().isoformat(timespec="seconds")
     with db.transaction() as cur:
         cur.execute("SELECT COUNT(*) as cnt FROM projects")
@@ -143,6 +155,31 @@ def update_color(project_db_id: int, color: str) -> None:
     with db.transaction() as cur:
         cur.execute(
             "UPDATE projects SET color_theme=? WHERE id=?", (color, project_db_id)
+        )
+
+
+def update_job_site(project_db_id: int, job_site: dict) -> None:
+    with db.transaction() as cur:
+        cur.execute(
+            """UPDATE projects SET
+               job_site_line1=?, job_site_line2=?,
+               job_site_city=?, job_site_state=?, job_site_zip=?
+               WHERE id=?""",
+            (
+                job_site.get("line1", "").strip(),
+                job_site.get("line2", "").strip(),
+                job_site.get("city", "").strip(),
+                job_site.get("state", "").strip(),
+                job_site.get("zip_code", "").strip(),
+                project_db_id,
+            ),
+        )
+
+
+def update_tax_rate(project_db_id: int, tax_rate: float) -> None:
+    with db.transaction() as cur:
+        cur.execute(
+            "UPDATE projects SET tax_rate=? WHERE id=?", (tax_rate, project_db_id)
         )
 
 

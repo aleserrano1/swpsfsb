@@ -140,10 +140,16 @@ class ProjectDetailScreen(ctk.CTkFrame):
         for i, client in enumerate(self._clients):
             frame = ctk.CTkFrame(scroll, corner_radius=8)
             frame.pack(fill="x", pady=3)
-            inner = ctk.CTkFrame(frame, fg_color="transparent")
-            inner.pack(anchor="w", padx=12, pady=8)
+
+            card_hdr = ctk.CTkFrame(frame, fg_color="transparent")
+            card_hdr.pack(fill="x", padx=12, pady=(8, 0))
             if len(self._clients) > 1:
-                label(inner, f"Client {i+1}", bold=True, size=12).pack(anchor="w")
+                label(card_hdr, f"Client {i+1}", bold=True, size=12).pack(side="left")
+            button(card_hdr, "Edit", lambda c=client: self._open_edit_client(c),
+                   width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
+
+            inner = ctk.CTkFrame(frame, fg_color="transparent")
+            inner.pack(anchor="w", padx=12, pady=(4, 8))
             if client.names:
                 label(inner, ", ".join(client.names), bold=True, size=13).pack(anchor="w")
             for email in client.emails:
@@ -155,11 +161,26 @@ class ProjectDetailScreen(ctk.CTkFrame):
                     label(inner, line, size=11, fg="gray").pack(anchor="w")
 
         # Job site
-        section_label(scroll, "JOB SITE").pack(anchor="w", pady=(12, 4))
+        js_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
+        js_hdr.pack(fill="x", pady=(12, 4))
+        section_label(js_hdr, "JOB SITE").pack(side="left")
+        button(js_hdr, "Edit", self._open_edit_job_site,
+               width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
         ctk.CTkFrame(scroll, corner_radius=8, fg_color=("gray90", "gray20")).pack(fill="x", pady=2)
         js_lines = _format_address_lines(self._project.job_site)
         for line in (js_lines or ["—"]):
             label(scroll, line, size=12).pack(anchor="w", padx=4)
+
+        # Tax rate (editable)
+        section_label(scroll, "TAX RATE (%)").pack(anchor="w", pady=(12, 4))
+        tr_card = ctk.CTkFrame(scroll, corner_radius=8)
+        tr_card.pack(fill="x", pady=2)
+        tr_inner = ctk.CTkFrame(tr_card, fg_color="transparent")
+        tr_inner.pack(anchor="w", padx=12, pady=8)
+        self._tax_rate_entry = ctk.CTkEntry(tr_inner, width=100, placeholder_text="e.g. 8.5")
+        self._tax_rate_entry.insert(0, str(self._project.tax_rate))
+        self._tax_rate_entry.pack(side="left", padx=(0, 8))
+        button(tr_inner, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
 
         # Financial summary
         section_label(scroll, "FINANCIAL SUMMARY").pack(anchor="w", pady=(16, 4))
@@ -315,6 +336,24 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if pmt.status == "unpaid":
             button(right, "Mark Paid", lambda p=pmt: self._mark_paid(p),
                    width=100, height=26, fg_color="#4a90d9", hover_color="#2c6faf").pack(anchor="e", pady=2)
+
+    # ── Overview edit helpers ────────────────────────────────────────────────
+
+    def _open_edit_client(self, client):
+        EditClientDialog(self, client, on_save=self.refresh)
+
+    def _open_edit_job_site(self):
+        EditJobSiteDialog(self, self.project_db_id, self._project.job_site, on_save=self.refresh)
+
+    def _save_tax_rate(self):
+        try:
+            val = float(self._tax_rate_entry.get().strip())
+        except ValueError:
+            show_error("Invalid Rate", "Tax rate must be a number.")
+            return
+        from models.project import update_tax_rate
+        update_tax_rate(self.project_db_id, val)
+        self.refresh()
 
     # ── Actions ─────────────────────────────────────────────────────────────
 
@@ -528,3 +567,260 @@ class MasterTextDialog(ctk.CTkToplevel):
     def _cancel(self):
         self.cancelled = True
         self.destroy()
+
+
+class EditClientDialog(ctk.CTkToplevel):
+    def __init__(self, parent, client, on_save):
+        super().__init__(parent)
+        self._client = client
+        self._on_save = on_save
+        self._name_entries = []
+        self._email_entries = []
+        self._phone_entries = []
+        self._address_blocks = []
+        self.title("Edit Client")
+        self.geometry("500x580")
+        self.resizable(False, True)
+        self.grab_set()
+        self._build_ui()
+
+    def _build_ui(self):
+        label(self, "Edit Client", bold=True, size=15).pack(pady=(16, 4))
+
+        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=16, pady=4)
+
+        self._build_multi_section(scroll, "NAMES", "Full name",
+                                  self._client.names, self._name_entries)
+        self._build_multi_section(scroll, "EMAILS", "Email address",
+                                  self._client.emails, self._email_entries)
+        self._build_multi_section(scroll, "PHONES", "Phone number",
+                                  self._client.phones, self._phone_entries)
+
+        addr_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
+        addr_hdr.pack(fill="x", pady=(8, 2))
+        section_label(addr_hdr, "ADDRESSES").pack(side="left")
+        button(addr_hdr, "+ Add Address", self._add_address_block,
+               width=120, height=22, fg_color="#555", hover_color="#333").pack(side="left", padx=8)
+
+        self._addresses_container = ctk.CTkFrame(scroll, fg_color="transparent")
+        self._addresses_container.pack(fill="x")
+
+        for addr in (self._client.addresses or [{}]):
+            self._add_address_block(addr)
+
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack(pady=12)
+        button(row, "Save", self._save, width=120,
+               fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=8)
+        button(row, "Cancel", self.destroy, width=100,
+               fg_color="gray", hover_color="#555").pack(side="left", padx=8)
+
+    def _build_multi_section(self, parent, title, placeholder, existing, entry_list):
+        container = ctk.CTkFrame(parent, fg_color="transparent")
+        container.pack(fill="x", pady=4)
+
+        header = ctk.CTkFrame(container, fg_color="transparent")
+        header.pack(fill="x")
+        section_label(header, title).pack(side="left")
+
+        entries_frame = ctk.CTkFrame(container, fg_color="transparent")
+
+        button(header, "+ Add",
+               lambda ef=entries_frame, p=placeholder, el=entry_list: self._add_entry(ef, p, el),
+               width=80, height=22, fg_color="#555", hover_color="#333").pack(side="left", padx=8)
+
+        entries_frame.pack(fill="x")
+
+        for val in (existing or [""]):
+            e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+            e.pack(anchor="w", pady=1)
+            if val:
+                e.insert(0, val)
+            entry_list.append(e)
+
+    def _add_entry(self, entries_frame, placeholder, entry_list):
+        e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+        e.pack(anchor="w", pady=1)
+        entry_list.append(e)
+
+    def _add_address_block(self, addr=None):
+        addr = addr or {}
+        block = ctk.CTkFrame(self._addresses_container,
+                              fg_color=("gray85", "gray25"), corner_radius=6)
+        block.pack(fill="x", pady=3)
+
+        inner = ctk.CTkFrame(block, fg_color="transparent")
+        inner.pack(fill="x", padx=8, pady=6)
+
+        widgets = {}
+
+        e1 = ctk.CTkEntry(inner, placeholder_text="Address Line 1 *", width=380)
+        e1.pack(anchor="w", pady=1)
+        if addr.get("line1"):
+            e1.insert(0, addr["line1"])
+        widgets["line1"] = e1
+
+        e2 = ctk.CTkEntry(inner, placeholder_text="Address Line 2 (optional)", width=380)
+        e2.pack(anchor="w", pady=1)
+        if addr.get("line2"):
+            e2.insert(0, addr["line2"])
+        widgets["line2"] = e2
+
+        city_row = ctk.CTkFrame(inner, fg_color="transparent")
+        city_row.pack(anchor="w", pady=1)
+
+        e_city = ctk.CTkEntry(city_row, placeholder_text="City *", width=190)
+        e_city.pack(side="left", padx=(0, 6))
+        if addr.get("city"):
+            e_city.insert(0, addr["city"])
+        widgets["city"] = e_city
+
+        e_state = ctk.CTkEntry(city_row, placeholder_text="State *", width=80)
+        e_state.pack(side="left", padx=(0, 6))
+        if addr.get("state"):
+            e_state.insert(0, addr["state"])
+        widgets["state"] = e_state
+
+        e_zip = ctk.CTkEntry(city_row, placeholder_text="Zip Code *", width=110)
+        e_zip.pack(side="left")
+        if addr.get("zip_code"):
+            e_zip.insert(0, addr["zip_code"])
+        widgets["zip_code"] = e_zip
+
+        button(inner, "Remove Address",
+               lambda b=block: self._remove_address_block(b),
+               width=130, height=22, fg_color="#e53935", hover_color="#b71c1c").pack(anchor="w", pady=(4, 0))
+
+        self._address_blocks.append({"frame": block, "widgets": widgets})
+
+    def _remove_address_block(self, block_frame):
+        self._address_blocks = [b for b in self._address_blocks if b["frame"] is not block_frame]
+        block_frame.destroy()
+
+    def _save(self):
+        import re
+
+        names = [e.get().strip() for e in self._name_entries if e.get().strip()]
+        if not names:
+            show_error("Missing Name", "At least one name is required.")
+            return
+
+        emails = [e.get().strip() for e in self._email_entries if e.get().strip()]
+        phones = [e.get().strip() for e in self._phone_entries if e.get().strip()]
+
+        addresses = []
+        for block in self._address_blocks:
+            w = block["widgets"]
+            addr = {k: w[k].get().strip() for k in w}
+            if not any(addr.values()):
+                continue
+            if not addr.get("line1"):
+                show_error("Incomplete Address", "Address Line 1 is required.")
+                return
+            if not addr.get("city"):
+                show_error("Incomplete Address", "City is required.")
+                return
+            if not addr.get("state"):
+                show_error("Incomplete Address", "State is required.")
+                return
+            zip_val = addr.get("zip_code", "")
+            if not zip_val:
+                show_error("Incomplete Address", "Zip Code is required.")
+                return
+            if not re.fullmatch(r"\d{5}(-\d{4})?", zip_val):
+                show_error("Invalid Zip Code", f"'{zip_val}' is not a valid zip code.")
+                return
+            addresses.append(addr)
+
+        from models.client import update_client
+        update_client(self._client.id, names, emails, phones, addresses)
+        self.destroy()
+        self._on_save()
+
+
+class EditJobSiteDialog(ctk.CTkToplevel):
+    def __init__(self, parent, project_db_id, current_job_site, on_save):
+        super().__init__(parent)
+        self._project_db_id = project_db_id
+        self._on_save = on_save
+        self.title("Edit Job Site")
+        self.geometry("460x310")
+        self.resizable(False, False)
+        self.grab_set()
+        self._build_ui(current_job_site)
+
+    def _build_ui(self, js):
+        label(self, "Edit Job Site", bold=True, size=15).pack(pady=(16, 8))
+
+        frame = ctk.CTkFrame(self, fg_color=("gray85", "gray25"), corner_radius=6)
+        frame.pack(padx=24, fill="x")
+        inner = ctk.CTkFrame(frame, fg_color="transparent")
+        inner.pack(fill="x", padx=8, pady=8)
+
+        self._line1 = ctk.CTkEntry(inner, placeholder_text="Address Line 1 *", width=390)
+        self._line1.pack(anchor="w", pady=1)
+        if js.get("line1"):
+            self._line1.insert(0, js["line1"])
+
+        self._line2 = ctk.CTkEntry(inner, placeholder_text="Address Line 2 (optional)", width=390)
+        self._line2.pack(anchor="w", pady=1)
+        if js.get("line2"):
+            self._line2.insert(0, js["line2"])
+
+        city_row = ctk.CTkFrame(inner, fg_color="transparent")
+        city_row.pack(anchor="w", pady=1)
+
+        self._city = ctk.CTkEntry(city_row, placeholder_text="City *", width=190)
+        self._city.pack(side="left", padx=(0, 6))
+        if js.get("city"):
+            self._city.insert(0, js["city"])
+
+        self._state = ctk.CTkEntry(city_row, placeholder_text="State *", width=80)
+        self._state.pack(side="left", padx=(0, 6))
+        if js.get("state"):
+            self._state.insert(0, js["state"])
+
+        self._zip = ctk.CTkEntry(city_row, placeholder_text="Zip *", width=110)
+        self._zip.pack(side="left")
+        if js.get("zip_code"):
+            self._zip.insert(0, js["zip_code"])
+
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack(pady=16)
+        button(row, "Save", self._save, width=120,
+               fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=8)
+        button(row, "Cancel", self.destroy, width=100,
+               fg_color="gray", hover_color="#555").pack(side="left", padx=8)
+
+    def _save(self):
+        import re
+        line1 = self._line1.get().strip()
+        line2 = self._line2.get().strip()
+        city = self._city.get().strip()
+        state = self._state.get().strip()
+        zip_code = self._zip.get().strip()
+
+        if not line1:
+            show_error("Incomplete Job Site", "Address Line 1 is required.")
+            return
+        if not city:
+            show_error("Incomplete Job Site", "City is required.")
+            return
+        if not state:
+            show_error("Incomplete Job Site", "State is required.")
+            return
+        if not zip_code:
+            show_error("Incomplete Job Site", "Zip Code is required.")
+            return
+        if not re.fullmatch(r"\d{5}(-\d{4})?", zip_code):
+            show_error("Invalid Zip Code", f"'{zip_code}' is not a valid zip code.")
+            return
+
+        from models.project import update_job_site
+        update_job_site(self._project_db_id, {
+            "line1": line1, "line2": line2,
+            "city": city, "state": state, "zip_code": zip_code,
+        })
+        self.destroy()
+        self._on_save()
