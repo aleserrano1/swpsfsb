@@ -1,4 +1,5 @@
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 
@@ -25,17 +26,22 @@ def generate(path: str, project, clients: list, services: list,
     # Chronological activity table
     elements.append(Paragraph("PROJECT FINANCIAL ACTIVITY", styles["section_header"]))
 
-    data = [["Date", "Type", "Description", "Amount", "Running Balance"]]
-    running = 0.0
+    subfield_style = ParagraphStyle(
+        "subfield", fontName="Helvetica-Oblique", fontSize=8,
+        textColor=colors.HexColor("#666666"), leftIndent=8,
+    )
 
-    # Combine services and payments chronologically
+    data = [["Date", "Type", "Description", "Amount", "Running Balance"]]
+
+    # Combine services and payments chronologically; carry subfields with services
     events = []
     for svc in services:
-        label = "Original Service" if svc.type == "original_service" else "Change Order"
-        events.append((svc.created_at, label, svc.description, svc.amount, True))
+        svc_label = "Original Service" if svc.type == "original_service" else "Change Order"
+        events.append((svc.created_at, svc_label, svc.description, svc.amount, True,
+                       getattr(svc, "subfields", [])))
     for pmt in payments:
-        label = f"Payment ({pmt.payment_type})"
-        events.append((pmt.created_at, label, pmt.description, pmt.amount, False))
+        pmt_label = f"Payment ({pmt.payment_type})"
+        events.append((pmt.created_at, pmt_label, pmt.description, pmt.amount, False, []))
 
     events.sort(key=lambda e: e[0])
 
@@ -44,11 +50,11 @@ def generate(path: str, project, clients: list, services: list,
     project_total = subtotal + tax_amount
     paid_total = sum(p.amount for p in payments if p.status == "paid")
 
-    # Build rows
+    subfield_rows = set()
     balance = 0.0
     billed = 0.0
     collected = 0.0
-    for date, etype, desc, amt, is_charge in events:
+    for date, etype, desc, amt, is_charge, subfields in events:
         if is_charge:
             billed += amt
             balance = billed - collected
@@ -57,11 +63,18 @@ def generate(path: str, project, clients: list, services: list,
             collected += amt
             balance = billed - collected
             data.append([date[:10], etype, desc or "—", f"-${amt:,.2f}", f"${balance:,.2f}"])
+        for sf in subfields:
+            subfield_rows.add(len(data) - 1)
+            data.append(["", "", Paragraph(f"  •  {sf.text}", subfield_style), "", ""])
 
     col_widths = [1.0 * inch, 1.5 * inch, 2.5 * inch, 1.1 * inch, 1.1 * inch]
     table = Table(data, colWidths=col_widths)
     ts = standard_table_style()
     ts.add("ALIGN", (3, 0), (4, -1), "RIGHT")
+    for r in subfield_rows:
+        ts.add("BACKGROUND", (0, r), (-1, r), colors.HexColor("#f9f9f9"))
+        ts.add("TOPPADDING", (0, r), (-1, r), 1)
+        ts.add("BOTTOMPADDING", (0, r), (-1, r), 1)
     table.setStyle(ts)
     elements.append(table)
     elements.append(Spacer(1, 0.2 * inch))

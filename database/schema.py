@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS services (
     created_at  TEXT    NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS service_subfields (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    text       TEXT    NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS payments (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,

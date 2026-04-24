@@ -6,7 +6,7 @@ import tkinter.messagebox as mb
 import config
 from models.project import get_by_id, get_financials, set_binding, update_proposal_texts, update_master_texts, update_color
 from models.client import clients_for_project
-from models.service import services_for_project, delete_service
+from models.service import services_for_project, delete_service, add_subfield, delete_subfield
 from models.payment import payments_for_project, set_paid, get_by_id as get_payment
 from models.settings import get_company_info, verify_pin
 from pdf.proposal import generate as generate_proposal
@@ -276,14 +276,56 @@ class ProjectDetailScreen(ctk.CTkFrame):
             label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=5)
 
     def _service_row(self, parent, svc, accent_color="#4a90d9"):
-        row = ctk.CTkFrame(parent, corner_radius=8)
-        row.pack(fill="x", pady=3)
-        inner = ctk.CTkFrame(row, fg_color="transparent")
-        inner.pack(fill="x", padx=12, pady=6)
-        label(inner, svc.description, size=12).pack(side="left", anchor="w")
-        label(inner, f"${svc.amount:,.2f}", bold=True, size=12).pack(side="right")
-        button(inner, "Delete", lambda s=svc: self._delete_service(s),
+        card = ctk.CTkFrame(parent, corner_radius=8)
+        card.pack(fill="x", pady=3)
+
+        # Header row: description + amount + delete
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(6, 2))
+        label(header, svc.description, size=12).pack(side="left", anchor="w")
+        label(header, f"${svc.amount:,.2f}", bold=True, size=12).pack(side="right")
+        button(header, "Delete", lambda s=svc: self._delete_service(s),
                width=70, height=24, fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=8)
+
+        # Subfields area
+        sf_container = ctk.CTkFrame(card, fg_color="transparent")
+        sf_container.pack(fill="x", padx=(28, 12), pady=(0, 4))
+
+        def _render_subfields():
+            for w in sf_container.winfo_children():
+                w.destroy()
+            for sf in svc.subfields:
+                sf_row = ctk.CTkFrame(sf_container, fg_color="transparent")
+                sf_row.pack(fill="x", pady=1)
+                label(sf_row, f"• {sf.text}", size=11, fg="gray").pack(side="left", anchor="w")
+
+                def _del_sf(sf_id=sf.id):
+                    delete_subfield(sf_id)
+                    svc.subfields = [s for s in svc.subfields if s.id != sf_id]
+                    _render_subfields()
+
+                button(sf_row, "×", _del_sf, width=24, height=20,
+                       fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=2)
+
+            # Inline "add subfield" row
+            add_row = ctk.CTkFrame(sf_container, fg_color="transparent")
+            add_row.pack(fill="x", pady=(2, 0))
+            sf_entry = ctk.CTkEntry(add_row, placeholder_text="Add subfield detail...",
+                                    height=26, corner_radius=6)
+            sf_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+            def _add_sf():
+                text = sf_entry.get().strip()
+                if not text:
+                    return
+                new_sf = add_subfield(svc.id, text, sort_order=len(svc.subfields))
+                svc.subfields.append(new_sf)
+                _render_subfields()
+
+            button(add_row, "+", _add_sf, width=28, height=26,
+                   fg_color=accent_color, hover_color="#1565c0").pack(side="right")
+
+        _render_subfields()
 
     def _delete_service(self, svc):
         if ask_yes_no("Delete Service", f"Delete '{svc.description}'?"):

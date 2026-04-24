@@ -1,5 +1,6 @@
 import os
 from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 
@@ -29,18 +30,34 @@ def generate(path: str, project, clients: list, services: list,
 
     # Services table
     elements.append(Paragraph("SCOPE OF WORK", styles["section_header"]))
+    subfield_style = ParagraphStyle(
+        "subfield", fontName="Helvetica-Oblique", fontSize=9,
+        textColor=colors.HexColor("#555555"), leftIndent=10, spaceAfter=1,
+    )
     service_data = [["#", "Description", "Amount"]]
+    subfield_rows = set()  # track which row indices are subfield rows
     for i, svc in enumerate(services, 1):
         service_data.append([
             str(i),
             Paragraph(svc.description, styles["body"]),
             f"${svc.amount:,.2f}",
         ])
+        for sf in getattr(svc, "subfields", []):
+            subfield_rows.add(len(service_data) - 1)
+            service_data.append([
+                "",
+                Paragraph(f"  •  {sf.text}", subfield_style),
+                "",
+            ])
 
     svc_table = Table(service_data, colWidths=[0.4 * inch, 5.1 * inch, 1.5 * inch])
     ts = standard_table_style()
     ts.add("ALIGN", (2, 0), (2, -1), "RIGHT")
     ts.add("ALIGN", (0, 0), (0, -1), "CENTER")
+    for r in subfield_rows:
+        ts.add("BACKGROUND", (0, r), (-1, r), colors.HexColor("#f9f9f9"))
+        ts.add("TOPPADDING", (0, r), (-1, r), 1)
+        ts.add("BOTTOMPADDING", (0, r), (-1, r), 1)
     svc_table.setStyle(ts)
     elements.append(svc_table)
     elements.append(Spacer(1, 0.15 * inch))

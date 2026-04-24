@@ -1,6 +1,14 @@
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from database import connection as db
+
+
+@dataclass
+class Subfield:
+    id: int
+    service_id: int
+    text: str
+    sort_order: int
 
 
 @dataclass
@@ -11,6 +19,7 @@ class Service:
     amount: float
     type: str  # 'original_service' or 'order_change'
     created_at: str
+    subfields: list = field(default_factory=list)
 
 
 def _row_to_service(row) -> Service:
@@ -24,12 +33,48 @@ def _row_to_service(row) -> Service:
     )
 
 
+def _row_to_subfield(row) -> Subfield:
+    return Subfield(
+        id=row["id"],
+        service_id=row["service_id"],
+        text=row["text"],
+        sort_order=row["sort_order"],
+    )
+
+
+def subfields_for_service(service_id: int) -> list[Subfield]:
+    rows = db.query(
+        "SELECT * FROM service_subfields WHERE service_id=? ORDER BY sort_order, id",
+        (service_id,),
+    )
+    return [_row_to_subfield(r) for r in rows]
+
+
+def add_subfield(service_id: int, text: str, sort_order: int = 0) -> Subfield:
+    with db.transaction() as cur:
+        cur.execute(
+            "INSERT INTO service_subfields (service_id, text, sort_order) VALUES (?,?,?)",
+            (service_id, text, sort_order),
+        )
+        row_id = cur.lastrowid
+    row = db.query_one("SELECT * FROM service_subfields WHERE id=?", (row_id,))
+    return _row_to_subfield(row)
+
+
+def delete_subfield(subfield_id: int) -> None:
+    with db.transaction() as cur:
+        cur.execute("DELETE FROM service_subfields WHERE id=?", (subfield_id,))
+
+
 def services_for_project(project_db_id: int) -> list[Service]:
     rows = db.query(
         "SELECT * FROM services WHERE project_id=? ORDER BY id",
         (project_db_id,),
     )
-    return [_row_to_service(r) for r in rows]
+    services = [_row_to_service(r) for r in rows]
+    for svc in services:
+        svc.subfields = subfields_for_service(svc.id)
+    return services
 
 
 _ALLOWED_TYPE = {
@@ -67,7 +112,9 @@ def add_service(project_db_id: int, description: str, amount: float,
         )
         row_id = cur.lastrowid
     row = db.query_one("SELECT * FROM services WHERE id=?", (row_id,))
-    return _row_to_service(row)
+    svc = _row_to_service(row)
+    svc.subfields = []
+    return svc
 
 
 def delete_service(service_id: int) -> None:
