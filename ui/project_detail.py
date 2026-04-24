@@ -205,12 +205,34 @@ class ProjectDetailScreen(ctk.CTkFrame):
     # ── Services Tab ────────────────────────────────────────────────────────
 
     def _build_services_tab(self, tab):
+        status = self._project.status
+        is_binding = status == "binding"
+
         top = ctk.CTkFrame(tab, fg_color="transparent")
         top.pack(fill="x", pady=(8, 4))
-        button(top, "+ Add Service", lambda: self._open_service_form("original_service"),
-               width=140, fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=(0, 8))
-        button(top, "+ Add Change Order", lambda: self._open_service_form("order_change"),
-               width=170, fg_color="#fb8c00", hover_color="#e65100").pack(side="left")
+
+        add_svc_btn = button(
+            top, "+ Add Service",
+            lambda: self._open_service_form("original_service"),
+            width=140,
+            fg_color="#4caf50" if not is_binding else "gray",
+            hover_color="#2e7d32" if not is_binding else "gray",
+            state="normal" if not is_binding else "disabled",
+        )
+        add_svc_btn.pack(side="left", padx=(0, 8))
+
+        add_co_btn = button(
+            top, "+ Add Change Order",
+            lambda: self._open_service_form("order_change"),
+            width=170,
+            fg_color="#fb8c00" if is_binding else "gray",
+            hover_color="#e65100" if is_binding else "gray",
+            state="normal" if is_binding else "disabled",
+        )
+        add_co_btn.pack(side="left", padx=(0, 8))
+
+        hint = "Change Orders available after marking Binding." if not is_binding else "Project is binding — add Change Orders only."
+        label(top, hint, size=11, fg="gray").pack(side="left")
 
         # Down payment (editable)
         dp_frame = ctk.CTkFrame(tab, corner_radius=8)
@@ -451,6 +473,13 @@ class ProjectDetailScreen(ctk.CTkFrame):
         QuoteFormDialog(self, self.project_db_id)
 
     def _open_service_form(self, service_type: str):
+        status = self._project.status
+        if status == "non_binding" and service_type == "order_change":
+            show_error("Not Allowed", "Change Orders can only be added after the project is marked as Binding.")
+            return
+        if status == "binding" and service_type == "original_service":
+            show_error("Not Allowed", "Original Services cannot be added to a binding project. Use a Change Order instead.")
+            return
         ServiceFormDialog(self, self.project_db_id, service_type, on_save=self.refresh)
 
     def _open_payment_form(self):

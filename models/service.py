@@ -32,8 +32,33 @@ def services_for_project(project_db_id: int) -> list[Service]:
     return [_row_to_service(r) for r in rows]
 
 
+_ALLOWED_TYPE = {
+    "non_binding": "original_service",
+    "binding": "order_change",
+}
+
+_TYPE_LABELS = {
+    "original_service": "Original Service",
+    "order_change": "Change Order",
+}
+
+_STATUS_MESSAGES = {
+    "non_binding": "Only Original Services can be added before the project is binding.",
+    "binding": "Only Change Orders can be added once the project is binding.",
+}
+
+
 def add_service(project_db_id: int, description: str, amount: float,
                 service_type: str = "original_service") -> Service:
+    proj_row = db.query_one("SELECT status FROM projects WHERE id=?", (project_db_id,))
+    if proj_row:
+        status = proj_row["status"]
+        allowed = _ALLOWED_TYPE.get(status)
+        if allowed and service_type != allowed:
+            raise ValueError(
+                f"Cannot add a {_TYPE_LABELS.get(service_type, service_type)} — "
+                f"{_STATUS_MESSAGES.get(status, 'invalid service type for current project status.')}"
+            )
     now = datetime.now().isoformat(timespec="seconds")
     with db.transaction() as cur:
         cur.execute(

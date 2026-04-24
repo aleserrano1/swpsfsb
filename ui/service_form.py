@@ -50,7 +50,11 @@ class ServiceFormDialog(ctk.CTkToplevel):
             show_error("Invalid Amount", "Please enter a valid number.")
             return
 
-        add_service(self.project_db_id, desc, amt, self.service_type)
+        try:
+            add_service(self.project_db_id, desc, amt, self.service_type)
+        except ValueError as e:
+            show_error("Not Allowed", str(e))
+            return
         if self.on_save:
             self.on_save()
         self.destroy()
