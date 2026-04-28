@@ -14,6 +14,7 @@ class Payment:
     status: str  # 'paid' or 'unpaid'
     invoice_description: str
     invoice_note: str
+    payment_description: str
     created_at: str
 
 
@@ -28,6 +29,7 @@ def _row_to_payment(row) -> Payment:
         status=row["status"],
         invoice_description=row["invoice_description"] or "",
         invoice_note=row["invoice_note"] or "",
+        payment_description=row["payment_description"] or "",
         created_at=row["created_at"],
     )
 
@@ -48,13 +50,11 @@ def get_by_id(payment_id: int) -> Payment | None:
 def add_payment(
     project_db_id: int,
     amount: float,
-    payment_type: str,
     description: str,
-    check_number: str,
     invoice_description: str = "",
     invoice_note: str = "",
 ) -> Payment:
-    """Add a payment. Raises ValueError if amount would exceed project total."""
+    """Add a payment/invoice. Raises ValueError if amount would exceed project total."""
     from models.project import get_financials
     fin = get_financials(project_db_id)
     existing_total = sum(
@@ -72,19 +72,32 @@ def add_payment(
         cur.execute(
             """INSERT INTO payments
                (project_id, amount, payment_type, description, check_number,
-                status, invoice_description, invoice_note, created_at)
-               VALUES (?,?,?,?,?,'unpaid',?,?,?)""",
-            (project_db_id, amount, payment_type, description,
-             check_number or None, invoice_description, invoice_note, now),
+                status, invoice_description, invoice_note, payment_description, created_at)
+               VALUES (?,?,''  ,?,NULL,'unpaid',?,?,'',?)""",
+            (project_db_id, amount, description, invoice_description, invoice_note, now),
         )
         row_id = cur.lastrowid
     return get_by_id(row_id)
 
 
-def set_paid(payment_id: int) -> Payment:
+def mark_paid(payment_id: int, payment_type: str, payment_description: str) -> Payment:
     with db.transaction() as cur:
-        cur.execute("UPDATE payments SET status='paid' WHERE id=?", (payment_id,))
+        cur.execute(
+            "UPDATE payments SET status='paid', payment_type=?, payment_description=? WHERE id=?",
+            (payment_type, payment_description, payment_id),
+        )
     return get_by_id(payment_id)
+
+
+def delete_payment(payment_id: int) -> None:
+    """Delete an unpaid payment. Raises ValueError if the payment is paid."""
+    payment = get_by_id(payment_id)
+    if payment is None:
+        raise ValueError("Payment not found.")
+    if payment.status == "paid":
+        raise ValueError("Paid payments cannot be deleted.")
+    with db.transaction() as cur:
+        cur.execute("DELETE FROM payments WHERE id=?", (payment_id,))
 
 
 def update_invoice_texts(payment_id: int, description: str, note: str) -> None:

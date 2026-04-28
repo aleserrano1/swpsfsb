@@ -24,13 +24,20 @@ def _build_invoice_elements(project, payment, clients, financials,
     elements.append(Spacer(1, 0.15 * inch))
     elements.append(Paragraph("PAYMENT DETAILS", styles["section_header"]))
 
-    detail_data = [
-        ["Description", payment.description or "—"],
-        ["Payment Type", payment.payment_type or "—"],
-        ["Check #", payment.check_number or "—"],
-        ["Date", payment.created_at[:10]],
-        ["Amount", f"${payment.amount:,.2f}"],
-    ]
+    if is_receipt:
+        detail_data = [
+            ["Description", payment.description or "—"],
+            ["Payment Type", payment.payment_type or "—"],
+            ["Payment Description", payment.payment_description or "—"],
+            ["Date", payment.created_at[:10]],
+            ["Amount", f"${payment.amount:,.2f}"],
+        ]
+    else:
+        detail_data = [
+            ["Description", payment.description or "—"],
+            ["Date", payment.created_at[:10]],
+            ["Amount", f"${payment.amount:,.2f}"],
+        ]
     detail_table = Table(detail_data, colWidths=[2 * inch, 5 * inch])
     detail_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),

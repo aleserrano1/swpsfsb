@@ -1,4 +1,4 @@
-"""Dialog to add a payment and generate its invoice PDF."""
+"""Dialog to create an invoice/payment entry and generate its invoice PDF."""
 import os
 import customtkinter as ctk
 
@@ -16,14 +16,14 @@ class PaymentFormDialog(ctk.CTkToplevel):
         super().__init__(parent)
         self.project_db_id = project_db_id
         self.on_save = on_save
-        self.title("Add Payment")
-        self.geometry("460x580")
+        self.title("Add Invoice")
+        self.geometry("460x460")
         self.resizable(False, False)
         self.grab_set()
         self._build_ui()
 
     def _build_ui(self):
-        label(self, "Add Payment", bold=True, size=16).pack(pady=(20, 4))
+        label(self, "Add Invoice", bold=True, size=16).pack(pady=(20, 4))
 
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=24, pady=4)
@@ -32,21 +32,9 @@ class PaymentFormDialog(ctk.CTkToplevel):
         self._amount = entry(scroll, placeholder="e.g. 2500.00", width=220)
         self._amount.pack(anchor="w")
 
-        section_label(scroll, "PAYMENT TYPE").pack(anchor="w", pady=(10, 2))
-        self._type_var = ctk.StringVar(value="Check")
-        type_menu = ctk.CTkOptionMenu(
-            scroll, values=["Check", "Cash", "Wire Transfer", "Credit Card", "ACH", "Other"],
-            variable=self._type_var, width=220,
-        )
-        type_menu.pack(anchor="w")
-
         section_label(scroll, "DESCRIPTION").pack(anchor="w", pady=(10, 2))
-        self._desc = entry(scroll, placeholder="Payment description", width=380)
+        self._desc = entry(scroll, placeholder="Invoice description", width=380)
         self._desc.pack(anchor="w")
-
-        section_label(scroll, "CHECK NUMBER (optional)").pack(anchor="w", pady=(10, 2))
-        self._check_num = entry(scroll, placeholder="e.g. 1042", width=180)
-        self._check_num.pack(anchor="w")
 
         section_label(scroll, "INVOICE GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(10, 2))
         self._inv_desc = ctk.CTkTextbox(scroll, width=380, height=60, corner_radius=8)
@@ -76,9 +64,7 @@ class PaymentFormDialog(ctk.CTkToplevel):
             payment = add_payment(
                 project_db_id=self.project_db_id,
                 amount=amt,
-                payment_type=self._type_var.get(),
                 description=self._desc.get().strip(),
-                check_number=self._check_num.get().strip(),
                 invoice_description=inv_desc,
                 invoice_note=inv_note,
             )
@@ -86,7 +72,6 @@ class PaymentFormDialog(ctk.CTkToplevel):
             show_error("Payment Error", str(e))
             return
 
-        # Generate invoice PDF
         self._generate_invoice(payment)
 
         if self.on_save:

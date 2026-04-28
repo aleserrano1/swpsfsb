@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS payments (
     status              TEXT    NOT NULL DEFAULT 'unpaid',
     invoice_description TEXT,
     invoice_note        TEXT,
+    payment_description TEXT    NOT NULL DEFAULT '',
     created_at          TEXT    NOT NULL
 );
 """
@@ -94,3 +95,9 @@ def initialize() -> None:
     """Create all tables if they don't exist."""
     with transaction() as cur:
         cur.executescript(_TABLES)
+    # Migrate existing DBs that predate the payment_description column.
+    try:
+        with transaction() as cur:
+            cur.execute("ALTER TABLE payments ADD COLUMN payment_description TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass  # Column already exists

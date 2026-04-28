@@ -7,13 +7,13 @@ import config
 from models.project import get_by_id, get_financials, set_binding, update_proposal_texts, update_master_texts, update_color
 from models.client import clients_for_project
 from models.service import services_for_project, delete_service, add_subfield, delete_subfield
-from models.payment import payments_for_project, set_paid, get_by_id as get_payment
+from models.payment import payments_for_project, mark_paid, delete_payment, get_by_id as get_payment
 from models.settings import get_company_info, verify_pin
 from pdf.proposal import generate as generate_proposal
 from pdf.invoice import generate_receipt
 from pdf.master import generate as generate_master
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, section_label, show_error, show_info, ask_yes_no
+from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no
 from ui.service_form import ServiceFormDialog
 from ui.payment_form import PaymentFormDialog
 from ui.quote_form import QuoteFormDialog
@@ -383,12 +383,14 @@ class ProjectDetailScreen(ctk.CTkFrame):
         # Left: description + meta
         info = ctk.CTkFrame(inner, fg_color="transparent")
         info.pack(side="left", fill="x", expand=True)
-        label(info, pmt.description or f"Payment #{pmt.id}", size=12, bold=True).pack(anchor="w")
-        meta = f"{pmt.payment_type}"
-        if pmt.check_number:
-            meta += f"  •  Check #{pmt.check_number}"
-        meta += f"  •  {pmt.created_at[:10]}"
-        label(info, meta, size=11, fg="gray").pack(anchor="w")
+        label(info, pmt.description or f"Invoice #{pmt.id}", size=12, bold=True).pack(anchor="w")
+        meta_parts = []
+        if pmt.payment_type:
+            meta_parts.append(pmt.payment_type)
+        if pmt.payment_description:
+            meta_parts.append(pmt.payment_description)
+        meta_parts.append(pmt.created_at[:10])
+        label(info, "  •  ".join(meta_parts), size=11, fg="gray").pack(anchor="w")
 
         # Right: amount + status + mark paid
         right = ctk.CTkFrame(inner, fg_color="transparent")
@@ -400,6 +402,8 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if pmt.status == "unpaid":
             button(right, "Mark Paid", lambda p=pmt: self._mark_paid(p),
                    width=100, height=26, fg_color="#4a90d9", hover_color="#2c6faf").pack(anchor="e", pady=2)
+            button(right, "Delete", lambda p=pmt: self._delete_payment(p),
+                   width=100, height=26, fg_color="#e53935", hover_color="#b71c1c").pack(anchor="e", pady=2)
 
     # ── Overview edit helpers ────────────────────────────────────────────────
 
@@ -528,7 +532,12 @@ class ProjectDetailScreen(ctk.CTkFrame):
         PaymentFormDialog(self, self.project_db_id, on_save=self.refresh)
 
     def _mark_paid(self, payment):
-        set_paid(payment.id)
+        dialog = MarkPaidDialog(self, payment)
+        self.wait_window(dialog)
+        if dialog.cancelled:
+            return
+
+        updated_payment = mark_paid(payment.id, dialog.payment_type, dialog.payment_description)
 
         # Generate receipt PDF
         cfg = config.load()
@@ -542,13 +551,25 @@ class ProjectDetailScreen(ctk.CTkFrame):
             clients = clients_for_project(self.project_db_id)
             financials = get_financials(self.project_db_id)
             company_info = get_company_info(proj.company)
-            updated_payment = get_payment(payment.id)
             try:
                 generate_receipt(path, proj, updated_payment, clients, financials, company_info)
                 show_info("Receipt Generated", f"Paid receipt saved:\n{filename}")
             except Exception as e:
                 show_error("PDF Error", f"Receipt could not be generated:\n{e}")
 
+        self.refresh()
+
+    def _delete_payment(self, payment):
+        if not ask_yes_no(
+            "Delete Invoice",
+            f"Delete invoice for ${payment.amount:,.2f}?\nThis cannot be undone.",
+        ):
+            return
+        try:
+            delete_payment(payment.id)
+        except ValueError as e:
+            show_error("Cannot Delete", str(e))
+            return
         self.refresh()
 
 
@@ -895,3 +916,53 @@ class EditJobSiteDialog(ctk.CTkToplevel):
         })
         self.destroy()
         self._on_save()
+
+
+class MarkPaidDialog(ctk.CTkToplevel):
+    def __init__(self, parent, payment):
+        super().__init__(parent)
+        self.cancelled = False
+        self.payment_type = ""
+        self.payment_description = ""
+        self.title("Mark as Paid")
+        self.geometry("460x310")
+        self.resizable(False, False)
+        self.grab_set()
+        self._build_ui(payment)
+
+    def _build_ui(self, payment):
+        label(self, "Mark as Paid", bold=True, size=15).pack(pady=(20, 4))
+        label(self, f"${payment.amount:,.2f}  —  {payment.description or f'Invoice #{payment.id}'}",
+              size=12, fg="gray").pack()
+
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.pack(fill="x", padx=24, pady=8)
+
+        section_label(frame, "PAYMENT TYPE").pack(anchor="w", pady=(8, 2))
+        self._type_var = ctk.StringVar(value="Check")
+        ctk.CTkOptionMenu(
+            frame,
+            values=["Check", "Cash", "Wire Transfer", "Credit Card", "ACH", "Other"],
+            variable=self._type_var,
+            width=220,
+        ).pack(anchor="w")
+
+        section_label(frame, "PAYMENT DESCRIPTION (optional)").pack(anchor="w", pady=(10, 2))
+        self._desc = entry(frame, placeholder="e.g. Check #1042", width=380)
+        self._desc.pack(anchor="w")
+
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.pack(pady=16)
+        button(btn_row, "Confirm & Generate Receipt", self._submit, width=220,
+               fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=8)
+        button(btn_row, "Cancel", self._cancel, width=100,
+               fg_color="gray", hover_color="#555").pack(side="left", padx=8)
+
+    def _submit(self):
+        self.payment_type = self._type_var.get()
+        self.payment_description = self._desc.get().strip()
+        self.destroy()
+
+    def _cancel(self):
+        self.cancelled = True
+        self.destroy()
