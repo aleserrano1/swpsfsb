@@ -18,6 +18,7 @@ class Service:
     description: str
     amount: float
     type: str  # 'original_service' or 'order_change'
+    is_hidden: bool
     created_at: str
     subfields: list = field(default_factory=list)
 
@@ -29,6 +30,7 @@ def _row_to_service(row) -> Service:
         description=row["description"],
         amount=row["amount"],
         type=row["type"],
+        is_hidden=bool(row["is_hidden"]),
         created_at=row["created_at"],
     )
 
@@ -120,3 +122,13 @@ def add_service(project_db_id: int, description: str, amount: float,
 def delete_service(service_id: int) -> None:
     with db.transaction() as cur:
         cur.execute("DELETE FROM services WHERE id=?", (service_id,))
+
+
+def toggle_hidden(service_id: int) -> bool:
+    """Flip is_hidden for a service; return the new is_hidden value."""
+    with db.transaction() as cur:
+        cur.execute(
+            "UPDATE services SET is_hidden = NOT is_hidden WHERE id=?", (service_id,)
+        )
+    row = db.query_one("SELECT is_hidden FROM services WHERE id=?", (service_id,))
+    return bool(row["is_hidden"])

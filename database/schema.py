@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS services (
     description TEXT    NOT NULL,
     amount      REAL    NOT NULL DEFAULT 0,
     type        TEXT    NOT NULL DEFAULT 'original_service',
+    is_hidden   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT    NOT NULL
 );
 
@@ -99,5 +100,11 @@ def initialize() -> None:
     try:
         with transaction() as cur:
             cur.execute("ALTER TABLE payments ADD COLUMN payment_description TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass  # Column already exists
+    # Migrate existing DBs that predate the is_hidden column.
+    try:
+        with transaction() as cur:
+            cur.execute("ALTER TABLE services ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0")
     except Exception:
         pass  # Column already exists

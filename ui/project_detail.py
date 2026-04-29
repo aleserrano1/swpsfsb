@@ -6,7 +6,7 @@ import tkinter.messagebox as mb
 import config
 from models.project import get_by_id, get_financials, set_binding, update_proposal_texts, update_master_texts, update_color
 from models.client import clients_for_project
-from models.service import services_for_project, delete_service, add_subfield, delete_subfield
+from models.service import services_for_project, delete_service, add_subfield, delete_subfield, toggle_hidden
 from models.payment import payments_for_project, mark_paid, delete_payment, get_by_id as get_payment
 from models.settings import get_company_info, verify_pin
 from pdf.proposal import generate as generate_proposal
@@ -50,10 +50,16 @@ class ProjectDetailScreen(ctk.CTkFrame):
         self._financials = get_financials(self.project_db_id)
 
     def refresh(self):
+        active_tab = self._tabview.get() if hasattr(self, "_tabview") else None
         self._load()
         for widget in self.winfo_children():
             widget.destroy()
         self._build_ui()
+        if active_tab:
+            try:
+                self._tabview.set(active_tab)
+            except Exception:
+                pass
 
     def _build_ui(self):
         proj = self._project
@@ -276,20 +282,45 @@ class ProjectDetailScreen(ctk.CTkFrame):
             label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=5)
 
     def _service_row(self, parent, svc, accent_color="#4a90d9"):
-        card = ctk.CTkFrame(parent, corner_radius=8)
+        hidden_bg = ("gray80", "gray25")
+        card = ctk.CTkFrame(parent, corner_radius=8,
+                            fg_color=hidden_bg if svc.is_hidden else ("gray86", "gray17"))
         card.pack(fill="x", pady=3)
 
-        # Header row: description + amount + delete
+        # Header row: description + amount + hide + delete
         header = ctk.CTkFrame(card, fg_color="transparent")
         header.pack(fill="x", padx=12, pady=(6, 2))
-        label(header, svc.description, size=12).pack(side="left", anchor="w")
-        label(header, f"${svc.amount:,.2f}", bold=True, size=12).pack(side="right")
+
+        desc_color = "gray" if svc.is_hidden else None
+        label(header, svc.description, size=12, fg=desc_color).pack(side="left", anchor="w")
+
+        amt_label = label(header, f"${svc.amount:,.2f}", bold=True, size=12,
+                          fg="gray" if svc.is_hidden else None)
+        amt_label.pack(side="right")
+
         button(header, "Delete", lambda s=svc: self._delete_service(s),
                width=70, height=24, fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=8)
 
-        # Subfields area
+        hide_label = "Show" if svc.is_hidden else "Hide"
+        hide_btn = button(header, hide_label, None,
+                          width=56, height=24, fg_color="#757575", hover_color="#424242")
+        hide_btn.pack(side="right", padx=(0, 4))
+
+        def _toggle_hidden(s=svc):
+            toggle_hidden(s.id)
+            self.refresh()
+
+        hide_btn.configure(command=_toggle_hidden)
+
+        if svc.is_hidden:
+            ctk.CTkLabel(header, text="HIDDEN", font=ctk.CTkFont(size=9),
+                         fg_color="#757575", text_color="white",
+                         corner_radius=4, padx=4, pady=1).pack(side="left", padx=(6, 0))
+
+        # Subfields area — hidden when service is hidden
         sf_container = ctk.CTkFrame(card, fg_color="transparent")
-        sf_container.pack(fill="x", padx=(28, 12), pady=(0, 4))
+        if not svc.is_hidden:
+            sf_container.pack(fill="x", padx=(28, 12), pady=(0, 4))
 
         def _render_subfields():
             for w in sf_container.winfo_children():
@@ -467,7 +498,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         self._project = get_by_id(self.project_db_id)
         proj = self._project
         clients = clients_for_project(self.project_db_id)
-        services = services_for_project(self.project_db_id)
+        services = [s for s in services_for_project(self.project_db_id) if not s.is_hidden]
         financials = get_financials(self.project_db_id)
         company_info = get_company_info(proj.company)
 
@@ -504,7 +535,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         path = os.path.join(folder, f"MASTER-{proj.project_id}.pdf")
 
         clients = clients_for_project(self.project_db_id)
-        services = services_for_project(self.project_db_id)
+        services = [s for s in services_for_project(self.project_db_id) if not s.is_hidden]
         payments = payments_for_project(self.project_db_id)
         financials = get_financials(self.project_db_id)
         company_info = get_company_info(proj.company)

@@ -69,7 +69,26 @@ class SettingsScreen(ctk.CTkFrame):
             e.insert(0, get(field_key))
             self._fields[field_key] = e
 
+        # Logo picker
+        section_label(frame, "COMPANY LOGO").pack(anchor="w", padx=16, pady=(8, 2))
+        logo_row = ctk.CTkFrame(frame, fg_color="transparent")
+        logo_row.pack(anchor="w", padx=16, pady=(0, 4))
+        logo_entry = entry(logo_row, placeholder="No logo selected", width=300)
+        logo_entry.pack(side="left", padx=(0, 8))
+        logo_entry.insert(0, get(f"{company}_logo"))
+        self._fields[f"{company}_logo"] = logo_entry
+        button(logo_row, "Browse", lambda e=logo_entry: self._browse_logo(e), width=80).pack(side="left")
+
         ctk.CTkFrame(frame, height=12, fg_color="transparent").pack()
+
+    def _browse_logo(self, logo_entry):
+        path = fd.askopenfilename(
+            title="Select Company Logo",
+            filetypes=[("Image files", "*.png *.jpg *.jpeg *.gif *.bmp"), ("All files", "*.*")],
+        )
+        if path:
+            logo_entry.delete(0, "end")
+            logo_entry.insert(0, path)
 
     def _build_directory_section(self, parent):
         frame = ctk.CTkFrame(parent, corner_radius=10)

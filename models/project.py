@@ -189,7 +189,7 @@ def get_financials(project_db_id: int) -> dict:
     from models.payment import payments_for_project
 
     project = get_by_id(project_db_id)
-    svcs = services_for_project(project_db_id)
+    svcs = [s for s in services_for_project(project_db_id) if not s.is_hidden]
     pmts = payments_for_project(project_db_id)
 
     subtotal = sum(s.amount for s in svcs)

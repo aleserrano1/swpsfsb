@@ -42,13 +42,14 @@ def format_address(addr: dict) -> str:
 
 
 def get_company_info(company: str) -> dict:
-    """Returns dict with president, address, phone for 'sfsb' or 'swp'."""
+    """Returns dict with president, address, phone, logo_path for 'sfsb' or 'swp'."""
     addr = get_company_address(company)
     return {
         "name": "Santa Fe Style Builders" if company == "sfsb" else "Southwest Plastering Co.",
         "president": get(f"{company}_president"),
         "address": format_address(addr),
         "phone": get(f"{company}_phone"),
+        "logo_path": get(f"{company}_logo"),
     }
 
 

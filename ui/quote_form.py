@@ -62,7 +62,7 @@ class QuoteFormDialog(ctk.CTkToplevel):
         clients = clients_for_project(self.project_db_id)
         financials = get_financials(self.project_db_id)
         company_info = get_company_info(project.company)
-        services = services_for_project(self.project_db_id)
+        services = [s for s in services_for_project(self.project_db_id) if not s.is_hidden]
 
         # Temporarily attach description/note for PDF generation
         project.proposal_description = desc

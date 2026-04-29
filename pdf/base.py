@@ -74,7 +74,8 @@ def standard_table_style(header_color=None) -> TableStyle:
 def build_header_elements(company_info: dict, doc_type: str, project_id: str, styles: dict):
     """Returns flowables for the company header block."""
     elements = []
-    logo_path = os.path.join(
+    # Prefer user-selected logo; fall back to bundled asset
+    logo_path = company_info.get("logo_path") or os.path.join(
         ASSETS_DIR,
         "sfsb_logo.png" if "Santa Fe" in company_info["name"] else "swp_logo.png",
     )
