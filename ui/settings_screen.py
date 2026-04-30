@@ -4,7 +4,8 @@ import customtkinter as ctk
 
 import config
 from models.settings import get, set_value, verify_pin, set_pin
-from ui.widgets import label, entry, button, section_label, show_error, show_info
+from models.phone import sanitize as sanitize_phone
+from ui.widgets import label, entry, button, section_label, show_error, show_info, phone_entry
 from ui.startup import PinEntryDialog
 
 
@@ -37,13 +38,19 @@ class SettingsScreen(ctk.CTkFrame):
 
         for field_key, placeholder in [
             (f"{company}_president", "President Name"),
-            (f"{company}_phone",     "Phone Number"),
         ]:
             section_label(frame, placeholder.upper()).pack(anchor="w", padx=16, pady=(4, 0))
             e = entry(frame, placeholder=placeholder, width=380)
             e.pack(anchor="w", padx=16, pady=(0, 4))
             e.insert(0, get(field_key))
             self._fields[field_key] = e
+
+        phone_key = f"{company}_phone"
+        section_label(frame, "PHONE NUMBER").pack(anchor="w", padx=16, pady=(4, 0))
+        e = phone_entry(frame, placeholder="Phone Number", width=380)
+        e.pack(anchor="w", padx=16, pady=(0, 4))
+        e.insert(0, sanitize_phone(get(phone_key)))
+        self._fields[phone_key] = e
 
         # Structured address fields
         section_label(frame, "COMPANY ADDRESS").pack(anchor="w", padx=16, pady=(8, 2))
@@ -135,7 +142,10 @@ class SettingsScreen(ctk.CTkFrame):
 
     def _save(self):
         for key, widget in self._fields.items():
-            set_value(key, widget.get().strip())
+            value = widget.get().strip()
+            if key.endswith('_phone'):
+                value = sanitize_phone(value)
+            set_value(key, value)
 
         cfg = config.load()
         cfg["base_output_dir"] = self._dir_entry.get().strip()

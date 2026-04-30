@@ -9,15 +9,18 @@ from models.client import clients_for_project
 from models.service import services_for_project, delete_service, add_subfield, delete_subfield, toggle_hidden
 from models.payment import payments_for_project, mark_paid, delete_payment, get_by_id as get_payment
 from models.settings import get_company_info, verify_pin
+from models.phone import sanitize as sanitize_phone, format_display as format_phone
 from pdf.proposal import generate as generate_proposal
+from pdf.change_order import generate as generate_change_order
 from pdf.invoice import generate_receipt
 from pdf.master import generate as generate_master
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no
+from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no, phone_entry
 from ui.service_form import ServiceFormDialog
 from ui.payment_form import PaymentFormDialog
 from ui.quote_form import QuoteFormDialog
 from ui.startup import PinEntryDialog
+
 
 
 def _format_address_lines(addr: dict) -> list[str]:
@@ -117,9 +120,16 @@ class ProjectDetailScreen(ctk.CTkFrame):
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.pack(fill="x", padx=32, pady=(12, 0))
 
-        button(actions, "Mark as Binding", self._mark_binding, width=160,
-               fg_color="#4caf50" if proj.status == "non_binding" else "gray",
-               hover_color="#2e7d32").pack(side="left", padx=(0, 8))
+        is_binding = proj.status == "binding"
+
+        if is_binding:
+            button(actions, "Generate Change Order", self._generate_change_order, width=185,
+                   fg_color="#fb8c00", hover_color="#e65100").pack(side="left", padx=(0, 8))
+        else:
+            button(actions, "Generate Proposal", self._generate_proposal, width=160,
+                   fg_color="#4a90d9", hover_color="#2c6faf").pack(side="left", padx=(0, 8))
+            button(actions, "Mark as Binding", self._mark_binding, width=160,
+                   fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=(0, 8))
         button(actions, "Generate Master File", self._generate_master, width=180).pack(side="left", padx=(0, 8))
         button(actions, "Generate Quote", self._open_quote, width=140,
                fg_color="#8e44ad", hover_color="#6a1f82").pack(side="left")
@@ -161,7 +171,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
             for email in client.emails:
                 label(inner, email, size=11, fg="gray").pack(anchor="w")
             for phone in client.phones:
-                label(inner, phone, size=11, fg="gray").pack(anchor="w")
+                label(inner, format_phone(phone), size=11, fg="gray").pack(anchor="w")
             for addr in client.addresses:
                 for line in _format_address_lines(addr):
                     label(inner, line, size=11, fg="gray").pack(anchor="w")
@@ -331,7 +341,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
                 label(sf_row, f"• {sf.text}", size=11, fg="gray").pack(side="left", anchor="w")
 
                 def _del_sf(sf_id=sf.id):
-                    delete_subfield(sf_id)
+                    if not self._verify_pin_for_binding("Enter PIN to delete this subfield:"):
+                        return
+                    delete_subfield(sf_id, authorized=True)
                     svc.subfields = [s for s in svc.subfields if s.id != sf_id]
                     _render_subfields()
 
@@ -358,10 +370,24 @@ class ProjectDetailScreen(ctk.CTkFrame):
 
         _render_subfields()
 
+    def _verify_pin_for_binding(self, prompt: str) -> bool:
+        """Return True if the project is non-binding or the user enters the correct PIN."""
+        if self._project.status != "binding":
+            return True
+        dialog = PinEntryDialog(self, prompt)
+        self.wait_window(dialog)
+        if not dialog.result or not verify_pin(dialog.result):
+            show_error("Access Denied", "Incorrect PIN. Deletion cancelled.")
+            return False
+        return True
+
     def _delete_service(self, svc):
-        if ask_yes_no("Delete Service", f"Delete '{svc.description}'?"):
-            delete_service(svc.id)
-            self.refresh()
+        if not ask_yes_no("Delete Service", f"Delete '{svc.description}'?"):
+            return
+        if not self._verify_pin_for_binding("Enter PIN to delete this line item:"):
+            return
+        delete_service(svc.id, authorized=True)
+        self.refresh()
 
     def _save_down_payment(self):
         try:
@@ -460,10 +486,13 @@ class ProjectDetailScreen(ctk.CTkFrame):
         update_color(self.project_db_id, color_name)
         self.refresh()
 
-    def _mark_binding(self):
+    def _generate_proposal(self):
         proj = self._project
         if proj.status == "binding":
-            show_info("Already Binding", "This project is already binding.")
+            show_info(
+                "Cannot Generate Proposal",
+                "Proposals cannot be regenerated once a project is marked as binding.",
+            )
             return
 
         cfg = config.load()
@@ -472,18 +501,6 @@ class ProjectDetailScreen(ctk.CTkFrame):
             show_error("No Output Directory", "Set a base output directory in Settings.")
             return
 
-        folder = os.path.join(base, proj.project_id)
-        proposal_path = os.path.join(folder, f"{proj.project_id}-proposal.pdf")
-
-        if os.path.exists(proposal_path):
-            # Need PIN to override
-            dialog = PinEntryDialog(self, "Proposal already exists. Enter PIN to regenerate:")
-            self.wait_window(dialog)
-            if not dialog.result or not verify_pin(dialog.result):
-                show_error("Access Denied", "Incorrect PIN.")
-                return
-
-        # Prompt for description/note
         desc_dialog = ProposalTextDialog(self,
                                          existing_desc=proj.proposal_description,
                                          existing_note=proj.proposal_note)
@@ -492,16 +509,19 @@ class ProjectDetailScreen(ctk.CTkFrame):
             return
 
         update_proposal_texts(self.project_db_id, desc_dialog.description, desc_dialog.note)
-        set_binding(self.project_db_id)
-
-        # Reload project with updated texts
         self._project = get_by_id(self.project_db_id)
         proj = self._project
+
         clients = clients_for_project(self.project_db_id)
-        services = [s for s in services_for_project(self.project_db_id) if not s.is_hidden]
+        services = [
+            s for s in services_for_project(self.project_db_id)
+            if not s.is_hidden and s.type == "original_service"
+        ]
         financials = get_financials(self.project_db_id)
         company_info = get_company_info(proj.company)
 
+        folder = os.path.join(base, proj.project_id)
+        proposal_path = os.path.join(folder, f"{proj.project_id}-proposal.pdf")
         os.makedirs(folder, exist_ok=True)
         try:
             generate_proposal(proposal_path, proj, clients, services, financials, company_info)
@@ -509,6 +529,53 @@ class ProjectDetailScreen(ctk.CTkFrame):
         except Exception as e:
             show_error("PDF Error", f"Could not generate proposal:\n{e}")
 
+        self.refresh()
+
+    def _generate_change_order(self):
+        proj = self._project
+        cfg = config.load()
+        base = cfg.get("base_output_dir", "")
+        if not base:
+            show_error("No Output Directory", "Set a base output directory in Settings.")
+            return
+
+        services = [
+            s for s in services_for_project(self.project_db_id)
+            if not s.is_hidden and s.type == "order_change"
+        ]
+        if not services:
+            show_error("No Change Orders", "There are no visible change order items to include.")
+            return
+
+        clients = clients_for_project(self.project_db_id)
+        company_info = get_company_info(proj.company)
+
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        folder = os.path.join(base, proj.project_id)
+        filename = f"CO-{proj.project_id}-{ts}.pdf"
+        path = os.path.join(folder, filename)
+        os.makedirs(folder, exist_ok=True)
+        try:
+            generate_change_order(path, proj, clients, services, company_info)
+            show_info("Change Order Generated", f"Saved:\n{filename}")
+        except Exception as e:
+            show_error("PDF Error", f"Could not generate change order:\n{e}")
+
+    def _mark_binding(self):
+        proj = self._project
+        if proj.status == "binding":
+            show_info("Already Binding", "This project is already binding.")
+            return
+
+        if not ask_yes_no(
+            "Mark as Binding",
+            "Mark this project as binding?\n\nOriginal services will be locked and proposal generation will be disabled.",
+        ):
+            return
+
+        set_binding(self.project_db_id)
+        show_info("Project Binding", "Project has been marked as binding.")
         self.refresh()
 
     def _generate_master(self):
@@ -717,8 +784,12 @@ class EditClientDialog(ctk.CTkToplevel):
                                   self._client.names, self._name_entries)
         self._build_multi_section(scroll, "EMAILS", "Email address",
                                   self._client.emails, self._email_entries)
-        self._build_multi_section(scroll, "PHONES", "Phone number",
-                                  self._client.phones, self._phone_entries)
+        sanitized_phones = [sanitize_phone(p) for p in (self._client.phones or [])]
+        self._build_multi_section(
+            scroll, "PHONES", "Phone number",
+            sanitized_phones, self._phone_entries,
+            make_entry=lambda p, ph: phone_entry(p, placeholder=ph, width=380),
+        )
 
         addr_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
         addr_hdr.pack(fill="x", pady=(8, 2))
@@ -739,7 +810,7 @@ class EditClientDialog(ctk.CTkToplevel):
         button(row, "Cancel", self.destroy, width=100,
                fg_color="gray", hover_color="#555").pack(side="left", padx=8)
 
-    def _build_multi_section(self, parent, title, placeholder, existing, entry_list):
+    def _build_multi_section(self, parent, title, placeholder, existing, entry_list, make_entry=None):
         container = ctk.CTkFrame(parent, fg_color="transparent")
         container.pack(fill="x", pady=4)
 
@@ -750,20 +821,26 @@ class EditClientDialog(ctk.CTkToplevel):
         entries_frame = ctk.CTkFrame(container, fg_color="transparent")
 
         button(header, "+ Add",
-               lambda ef=entries_frame, p=placeholder, el=entry_list: self._add_entry(ef, p, el),
+               lambda ef=entries_frame, p=placeholder, el=entry_list, me=make_entry: self._add_entry(ef, p, el, me),
                width=80, height=22, fg_color="#555", hover_color="#333").pack(side="left", padx=8)
 
         entries_frame.pack(fill="x")
 
         for val in (existing or [""]):
-            e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+            if make_entry is not None:
+                e = make_entry(entries_frame, placeholder)
+            else:
+                e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
             e.pack(anchor="w", pady=1)
             if val:
                 e.insert(0, val)
             entry_list.append(e)
 
-    def _add_entry(self, entries_frame, placeholder, entry_list):
-        e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+    def _add_entry(self, entries_frame, placeholder, entry_list, make_entry=None):
+        if make_entry is not None:
+            e = make_entry(entries_frame, placeholder)
+        else:
+            e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
         e.pack(anchor="w", pady=1)
         entry_list.append(e)
 

@@ -15,6 +15,18 @@ def entry(parent, placeholder="", width=260, **kwargs):
     return ctk.CTkEntry(parent, placeholder_text=placeholder, width=width, **kwargs)
 
 
+def _phone_validate(new_val: str) -> bool:
+    return new_val == "" or (new_val.isdigit() and len(new_val) <= 15)
+
+
+def phone_entry(parent, placeholder="Phone number", width=260, **kwargs):
+    """CTkEntry that only accepts digit characters (no letters, symbols, or spaces)."""
+    e = ctk.CTkEntry(parent, placeholder_text=placeholder, width=width, **kwargs)
+    vcmd = (e.register(_phone_validate), '%P')
+    e.configure(validate='key', validatecommand=vcmd)
+    return e
+
+
 def button(parent, text, command, width=120, fg_color=None, hover_color=None, **kwargs):
     kw = {"width": width}
     if fg_color:

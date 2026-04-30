@@ -4,7 +4,7 @@ import customtkinter as ctk
 from models.project import create as create_project
 from models.client import add_client
 from ui.theme import COLOR_THEMES, COMPANY_LABELS
-from ui.widgets import label, entry, button, section_label, show_error
+from ui.widgets import label, entry, button, section_label, show_error, phone_entry
 
 
 class ProjectFormScreen(ctk.CTkFrame):
@@ -240,14 +240,14 @@ class ClientBlock(ctk.CTkFrame):
         entries_frame = ctk.CTkFrame(row_container, fg_color="transparent")
         entries_frame.pack(fill="x")
 
-        e = entry(entries_frame, placeholder=placeholder, width=300)
+        e = phone_entry(entries_frame, placeholder=placeholder, width=300) if key == "phones" else entry(entries_frame, placeholder=placeholder, width=300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
 
     def _add_field(self, key: str, placeholder: str, row_container):
         children = row_container.winfo_children()
         entries_frame = children[-1]
-        e = entry(entries_frame, placeholder=placeholder, width=300)
+        e = phone_entry(entries_frame, placeholder=placeholder, width=300) if key == "phones" else entry(entries_frame, placeholder=placeholder, width=300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
 

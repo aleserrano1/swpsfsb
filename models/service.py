@@ -63,7 +63,17 @@ def add_subfield(service_id: int, text: str, sort_order: int = 0) -> Subfield:
     return _row_to_subfield(row)
 
 
-def delete_subfield(subfield_id: int) -> None:
+def delete_subfield(subfield_id: int, authorized: bool = False) -> None:
+    if not authorized:
+        row = db.query_one(
+            """SELECT p.status FROM service_subfields sf
+               JOIN services s ON s.id = sf.service_id
+               JOIN projects p ON p.id = s.project_id
+               WHERE sf.id=?""",
+            (subfield_id,),
+        )
+        if row and row["status"] == "binding":
+            raise ValueError("Deleting a subfield on a binding project requires the override PIN.")
     with db.transaction() as cur:
         cur.execute("DELETE FROM service_subfields WHERE id=?", (subfield_id,))
 
@@ -119,7 +129,14 @@ def add_service(project_db_id: int, description: str, amount: float,
     return svc
 
 
-def delete_service(service_id: int) -> None:
+def delete_service(service_id: int, authorized: bool = False) -> None:
+    if not authorized:
+        row = db.query_one(
+            "SELECT p.status FROM services s JOIN projects p ON p.id = s.project_id WHERE s.id=?",
+            (service_id,),
+        )
+        if row and row["status"] == "binding":
+            raise ValueError("Deleting a service on a binding project requires the override PIN.")
     with db.transaction() as cur:
         cur.execute("DELETE FROM services WHERE id=?", (service_id,))
 

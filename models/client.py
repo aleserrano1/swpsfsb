@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from database import connection as db
+from models.phone import sanitize as sanitize_phone
 
 
 @dataclass
@@ -81,8 +82,9 @@ def add_client(project_db_id: int, names: list[str], emails: list[str],
             if v.strip():
                 cur.execute("INSERT INTO client_emails (client_id, value) VALUES (?,?)", (client_id, v.strip()))
         for v in phones:
-            if v.strip():
-                cur.execute("INSERT INTO client_phones (client_id, value) VALUES (?,?)", (client_id, v.strip()))
+            cleaned = sanitize_phone(v)
+            if cleaned:
+                cur.execute("INSERT INTO client_phones (client_id, value) VALUES (?,?)", (client_id, cleaned))
         _insert_addresses(cur, client_id, addresses)
 
     names_out, emails_out, phones_out, addresses_out = _load_fields(client_id)
@@ -105,8 +107,9 @@ def update_client(client_id: int, names: list[str], emails: list[str],
             if v.strip():
                 cur.execute("INSERT INTO client_emails (client_id, value) VALUES (?,?)", (client_id, v.strip()))
         for v in phones:
-            if v.strip():
-                cur.execute("INSERT INTO client_phones (client_id, value) VALUES (?,?)", (client_id, v.strip()))
+            cleaned = sanitize_phone(v)
+            if cleaned:
+                cur.execute("INSERT INTO client_phones (client_id, value) VALUES (?,?)", (client_id, cleaned))
         _insert_addresses(cur, client_id, addresses)
 
 

@@ -1,4 +1,5 @@
 from database import connection as db
+from models.phone import format_display as format_phone
 
 
 def get(key: str, default: str = "") -> str:
@@ -48,7 +49,7 @@ def get_company_info(company: str) -> dict:
         "name": "Santa Fe Style Builders" if company == "sfsb" else "Southwest Plastering Co.",
         "president": get(f"{company}_president"),
         "address": format_address(addr),
-        "phone": get(f"{company}_phone"),
+        "phone": format_phone(get(f"{company}_phone")),
         "logo_path": get(f"{company}_logo"),
     }
 

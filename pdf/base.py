@@ -1,4 +1,5 @@
 import os
+from models.phone import format_display as format_phone
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -153,7 +154,7 @@ def build_client_block(clients, job_site: dict, styles: dict):
         for email in client.emails:
             elements.append(Paragraph(email, styles["body"]))
         for phone in client.phones:
-            elements.append(Paragraph(phone, styles["body"]))
+            elements.append(Paragraph(format_phone(phone), styles["body"]))
         for addr in client.addresses:
             for line in _address_lines(addr):
                 elements.append(Paragraph(line, styles["body"]))
