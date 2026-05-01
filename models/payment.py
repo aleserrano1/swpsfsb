@@ -54,8 +54,11 @@ def add_payment(
     invoice_description: str = "",
     invoice_note: str = "",
 ) -> Payment:
-    """Add a payment/invoice. Raises ValueError if amount would exceed project total."""
-    from models.project import get_financials
+    """Add a payment/invoice. Raises ValueError if project is not binding or amount exceeds total."""
+    from models.project import get_financials, get_by_id as get_project
+    proj = get_project(project_db_id)
+    if proj is None or proj.status != "binding":
+        raise ValueError("Payments can only be created after the project is marked as binding.")
     fin = get_financials(project_db_id)
     existing_total = sum(
         r["amount"] for r in db.query(

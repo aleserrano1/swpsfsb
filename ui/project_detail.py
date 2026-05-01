@@ -402,6 +402,18 @@ class ProjectDetailScreen(ctk.CTkFrame):
     # ── Payments Tab ────────────────────────────────────────────────────────
 
     def _build_payments_tab(self, tab):
+        if self._project.status != "binding":
+            wrapper = ctk.CTkFrame(tab, fg_color="transparent")
+            wrapper.pack(fill="both", expand=True)
+            label(wrapper, "Payments Locked", size=16, bold=True, fg="#fb8c00").pack(pady=(40, 8))
+            label(
+                wrapper,
+                "This project must be marked as Binding before payments can be created.",
+                size=13,
+                fg="gray",
+            ).pack()
+            return
+
         top = ctk.CTkFrame(tab, fg_color="transparent")
         top.pack(fill="x", pady=(8, 4))
         button(top, "+ Add Payment", self._open_payment_form, width=140,
