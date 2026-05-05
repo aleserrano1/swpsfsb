@@ -89,6 +89,13 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_description TEXT    NOT NULL DEFAULT '',
     created_at          TEXT    NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS payment_allocations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id  INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    service_id  INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    amount      REAL    NOT NULL DEFAULT 0
+);
 """
 
 
@@ -108,3 +115,14 @@ def initialize() -> None:
             cur.execute("ALTER TABLE services ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0")
     except Exception:
         pass  # Column already exists
+    # Migrate existing DBs that predate the payment_allocations table.
+    try:
+        with transaction() as cur:
+            cur.execute("""CREATE TABLE IF NOT EXISTS payment_allocations (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                payment_id  INTEGER NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+                service_id  INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+                amount      REAL    NOT NULL DEFAULT 0
+            )""")
+    except Exception:
+        pass  # Table already exists

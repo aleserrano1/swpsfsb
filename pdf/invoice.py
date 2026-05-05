@@ -10,7 +10,8 @@ from pdf.base import (
 
 
 def _build_invoice_elements(project, payment, clients, financials,
-                             company_info, styles, is_receipt=False):
+                             company_info, styles, is_receipt=False,
+                             services=None):
     inv_num = f"INV-{project.project_id}-{payment.id:04d}"
     doc_type = f"{'PAID RECEIPT' if is_receipt else 'INVOICE'}  {inv_num}"
     elements = build_header_elements(company_info, doc_type, project.project_id, styles)
@@ -49,6 +50,31 @@ def _build_invoice_elements(project, payment, clients, financials,
         ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cccccc")),
     ]))
     elements.append(detail_table)
+
+    # Line item allocation breakdown
+    if payment.allocations:
+        svc_map = {s.id: s for s in (services or [])}
+        elements.append(Spacer(1, 0.12 * inch))
+        elements.append(Paragraph("ALLOCATION BREAKDOWN", styles["section_header"]))
+        alloc_data = [["Line Item", "Amount"]]
+        for alloc in payment.allocations:
+            svc = svc_map.get(alloc.service_id)
+            svc_name = svc.description if svc else f"Service #{alloc.service_id}"
+            alloc_data.append([svc_name, f"${alloc.amount:,.2f}"])
+        alloc_table = Table(alloc_data, colWidths=[5 * inch, 2 * inch])
+        alloc_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f4f4")]),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8e8e8")),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cccccc")),
+        ]))
+        elements.append(alloc_table)
+
     elements.append(Spacer(1, 0.15 * inch))
 
     # Note
@@ -72,20 +98,22 @@ def _build_invoice_elements(project, payment, clients, financials,
 
 
 def generate_invoice(path: str, project, payment, clients, financials,
-                     company_info: dict) -> None:
+                     company_info: dict, services=None) -> None:
     doc = make_doc(path, project.project_id)
     styles = get_styles()
     elements = _build_invoice_elements(
-        project, payment, clients, financials, company_info, styles, is_receipt=False
+        project, payment, clients, financials, company_info, styles,
+        is_receipt=False, services=services,
     )
     doc.build(elements, onFirstPage=footer_callback, onLaterPages=footer_callback)
 
 
 def generate_receipt(path: str, project, payment, clients, financials,
-                     company_info: dict) -> None:
+                     company_info: dict, services=None) -> None:
     doc = make_doc(path, project.project_id)
     styles = get_styles()
     elements = _build_invoice_elements(
-        project, payment, clients, financials, company_info, styles, is_receipt=True
+        project, payment, clients, financials, company_info, styles,
+        is_receipt=True, services=services,
     )
     doc.build(elements, onFirstPage=footer_callback, onLaterPages=footer_callback)

@@ -449,7 +449,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         inner = ctk.CTkFrame(row, fg_color="transparent")
         inner.pack(fill="x", padx=12, pady=8)
 
-        # Left: description + meta
+        # Left: description + meta + allocations
         info = ctk.CTkFrame(inner, fg_color="transparent")
         info.pack(side="left", fill="x", expand=True)
         label(info, pmt.description or f"Invoice #{pmt.id}", size=12, bold=True).pack(anchor="w")
@@ -460,6 +460,13 @@ class ProjectDetailScreen(ctk.CTkFrame):
             meta_parts.append(pmt.payment_description)
         meta_parts.append(pmt.created_at[:10])
         label(info, "  •  ".join(meta_parts), size=11, fg="gray").pack(anchor="w")
+
+        if pmt.allocations:
+            svc_map = {s.id: s for s in self._services}
+            for alloc in pmt.allocations:
+                svc = svc_map.get(alloc.service_id)
+                svc_name = svc.description if svc else f"Service #{alloc.service_id}"
+                label(info, f"  └ ${alloc.amount:,.2f} → {svc_name}", size=11, fg="gray").pack(anchor="w")
 
         # Right: amount + status + mark paid
         right = ctk.CTkFrame(inner, fg_color="transparent")
@@ -661,8 +668,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             clients = clients_for_project(self.project_db_id)
             financials = get_financials(self.project_db_id)
             company_info = get_company_info(proj.company)
+            svcs = services_for_project(self.project_db_id)
             try:
-                generate_receipt(path, proj, updated_payment, clients, financials, company_info)
+                generate_receipt(path, proj, updated_payment, clients, financials, company_info, services=svcs)
                 show_info("Receipt Generated", f"Paid receipt saved:\n{filename}")
             except Exception as e:
                 show_error("PDF Error", f"Receipt could not be generated:\n{e}")
