@@ -318,6 +318,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
 
         def _toggle_hidden(s=svc):
             toggle_hidden(s.id)
+            self._maybe_regenerate_master()
             self.refresh()
 
         hide_btn.configure(command=_toggle_hidden)
@@ -387,6 +388,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if not self._verify_pin_for_binding("Enter PIN to delete this line item:"):
             return
         delete_service(svc.id, authorized=True)
+        self._maybe_regenerate_master()
         self.refresh()
 
     def _save_down_payment(self):
@@ -397,6 +399,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
             return
         from models.project import update_down_payment
         update_down_payment(self.project_db_id, val)
+        self._maybe_regenerate_master()
         self.refresh()
 
     # ── Payments Tab ────────────────────────────────────────────────────────
@@ -497,6 +500,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
             return
         from models.project import update_tax_rate
         update_tax_rate(self.project_db_id, val)
+        self._maybe_regenerate_master()
         self.refresh()
 
     # ── Actions ─────────────────────────────────────────────────────────────
@@ -548,6 +552,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         except Exception as e:
             show_error("PDF Error", f"Could not generate proposal:\n{e}")
 
+        self._maybe_regenerate_master()
         self.refresh()
 
     def _generate_change_order(self):
@@ -580,6 +585,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             show_info("Change Order Generated", f"Saved:\n{filename}")
         except Exception as e:
             show_error("PDF Error", f"Could not generate change order:\n{e}")
+            return
+
+        self._maybe_regenerate_master()
 
     def _mark_binding(self):
         proj = self._project
@@ -621,7 +629,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         path = os.path.join(folder, f"MASTER-{proj.project_id}.pdf")
 
         clients = clients_for_project(self.project_db_id)
-        services = [s for s in services_for_project(self.project_db_id) if not s.is_hidden]
+        services = services_for_project(self.project_db_id)
         payments = payments_for_project(self.project_db_id)
         financials = get_financials(self.project_db_id)
         company_info = get_company_info(proj.company)
@@ -632,8 +640,31 @@ class ProjectDetailScreen(ctk.CTkFrame):
         except Exception as e:
             show_error("PDF Error", f"Could not generate master file:\n{e}")
 
+    def _maybe_regenerate_master(self):
+        """Silently regenerate the master file if it already exists on disk."""
+        cfg = config.load()
+        base = cfg.get("base_output_dir", "")
+        if not base:
+            return
+        proj = get_by_id(self.project_db_id)
+        if not proj:
+            return
+        folder = os.path.join(base, proj.project_id)
+        master_path = os.path.join(folder, f"MASTER-{proj.project_id}.pdf")
+        if not os.path.exists(master_path):
+            return
+        try:
+            clients = clients_for_project(self.project_db_id)
+            services = services_for_project(self.project_db_id)
+            payments = payments_for_project(self.project_db_id)
+            financials = get_financials(self.project_db_id)
+            company_info = get_company_info(proj.company)
+            generate_master(master_path, proj, clients, services, payments, financials, company_info)
+        except Exception:
+            pass
+
     def _open_quote(self):
-        QuoteFormDialog(self, self.project_db_id)
+        QuoteFormDialog(self, self.project_db_id, on_done=self._maybe_regenerate_master)
 
     def _open_service_form(self, service_type: str):
         status = self._project.status
@@ -643,10 +674,19 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if status == "binding" and service_type == "original_service":
             show_error("Not Allowed", "Original Services cannot be added to a binding project. Use a Change Order instead.")
             return
-        ServiceFormDialog(self, self.project_db_id, service_type, on_save=self.refresh)
+
+        def _on_save():
+            self._maybe_regenerate_master()
+            self.refresh()
+
+        ServiceFormDialog(self, self.project_db_id, service_type, on_save=_on_save)
 
     def _open_payment_form(self):
-        PaymentFormDialog(self, self.project_db_id, on_save=self.refresh)
+        def _on_save():
+            self._maybe_regenerate_master()
+            self.refresh()
+
+        PaymentFormDialog(self, self.project_db_id, on_save=_on_save)
 
     def _mark_paid(self, payment):
         dialog = MarkPaidDialog(self, payment)
@@ -656,25 +696,42 @@ class ProjectDetailScreen(ctk.CTkFrame):
 
         updated_payment = mark_paid(payment.id, dialog.payment_type, dialog.payment_description)
 
-        # Generate receipt PDF
         cfg = config.load()
         base = cfg.get("base_output_dir", "")
         proj = self._project
         if base:
             folder = os.path.join(base, proj.project_id)
             os.makedirs(folder, exist_ok=True)
-            filename = f"REC-{proj.project_id}-{payment.id:04d}.pdf"
-            path = os.path.join(folder, filename)
+
+            inv_filename = f"INV-{proj.project_id}-{payment.id:04d}.pdf"
+            inv_path = os.path.join(folder, inv_filename)
+            inv_existed = os.path.exists(inv_path)
+            if inv_existed:
+                try:
+                    os.remove(inv_path)
+                except Exception:
+                    pass
+
+            rec_filename = f"REC-{proj.project_id}-{payment.id:04d}.pdf"
+            rec_path = os.path.join(folder, rec_filename)
             clients = clients_for_project(self.project_db_id)
             financials = get_financials(self.project_db_id)
             company_info = get_company_info(proj.company)
             svcs = services_for_project(self.project_db_id)
             try:
-                generate_receipt(path, proj, updated_payment, clients, financials, company_info, services=svcs)
-                show_info("Receipt Generated", f"Paid receipt saved:\n{filename}")
+                generate_receipt(rec_path, proj, updated_payment, clients, financials, company_info, services=svcs)
+                if inv_existed:
+                    show_info("Receipt Generated", f"Invoice replaced with paid receipt:\n{rec_filename}")
+                else:
+                    show_info(
+                        "Receipt Generated",
+                        f"Original invoice PDF was not found.\n"
+                        f"A new paid receipt was created:\n{rec_filename}",
+                    )
             except Exception as e:
                 show_error("PDF Error", f"Receipt could not be generated:\n{e}")
 
+        self._maybe_regenerate_master()
         self.refresh()
 
     def _delete_payment(self, payment):
@@ -688,6 +745,22 @@ class ProjectDetailScreen(ctk.CTkFrame):
         except ValueError as e:
             show_error("Cannot Delete", str(e))
             return
+
+        cfg = config.load()
+        base = cfg.get("base_output_dir", "")
+        proj = self._project
+        if base:
+            inv_filename = f"INV-{proj.project_id}-{payment.id:04d}.pdf"
+            inv_path = os.path.join(base, proj.project_id, inv_filename)
+            if os.path.exists(inv_path):
+                try:
+                    os.remove(inv_path)
+                except Exception as e:
+                    show_error("File Error", f"Invoice deleted from records, but the PDF could not be removed:\n{e}")
+            else:
+                show_info("PDF Not Found", f"Invoice deleted from records, but the PDF file was not found:\n{inv_filename}")
+
+        self._maybe_regenerate_master()
         self.refresh()
 
 
