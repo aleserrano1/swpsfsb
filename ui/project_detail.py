@@ -5,7 +5,12 @@ import tkinter.messagebox as mb
 
 import config
 from models.project import get_by_id, get_financials, set_binding, update_proposal_texts, update_master_texts, update_color
-from models.client import clients_for_project
+from models.client import (
+    clients_for_project,
+    search_names, search_emails, search_phones,
+    search_address_line1, search_address_line2,
+    search_cities, search_states, search_zip_codes,
+)
 from models.service import services_for_project, delete_service, add_subfield, delete_subfield, toggle_hidden
 from models.payment import payments_for_project, mark_paid, delete_payment, get_by_id as get_payment
 from models.settings import get_company_info, verify_pin
@@ -15,7 +20,7 @@ from pdf.change_order import generate as generate_change_order
 from pdf.invoice import generate_receipt
 from pdf.master import generate as generate_master
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no, phone_entry
+from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no, AutocompleteEntry
 from ui.service_form import ServiceFormDialog
 from ui.payment_form import PaymentFormDialog
 from ui.quote_form import QuoteFormDialog
@@ -874,14 +879,16 @@ class EditClientDialog(ctk.CTkToplevel):
         scroll.pack(fill="both", expand=True, padx=16, pady=4)
 
         self._build_multi_section(scroll, "NAMES", "Full name",
-                                  self._client.names, self._name_entries)
+                                  self._client.names, self._name_entries,
+                                  make_entry=lambda p, ph: AutocompleteEntry(p, search_names, placeholder=ph, width=380))
         self._build_multi_section(scroll, "EMAILS", "Email address",
-                                  self._client.emails, self._email_entries)
+                                  self._client.emails, self._email_entries,
+                                  make_entry=lambda p, ph: AutocompleteEntry(p, search_emails, placeholder=ph, width=380))
         sanitized_phones = [sanitize_phone(p) for p in (self._client.phones or [])]
         self._build_multi_section(
             scroll, "PHONES", "Phone number",
             sanitized_phones, self._phone_entries,
-            make_entry=lambda p, ph: phone_entry(p, placeholder=ph, width=380),
+            make_entry=lambda p, ph: AutocompleteEntry(p, search_phones, placeholder=ph, width=380, phone_mode=True),
         )
 
         addr_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -920,20 +927,14 @@ class EditClientDialog(ctk.CTkToplevel):
         entries_frame.pack(fill="x")
 
         for val in (existing or [""]):
-            if make_entry is not None:
-                e = make_entry(entries_frame, placeholder)
-            else:
-                e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+            e = make_entry(entries_frame, placeholder)
             e.pack(anchor="w", pady=1)
             if val:
                 e.insert(0, val)
             entry_list.append(e)
 
     def _add_entry(self, entries_frame, placeholder, entry_list, make_entry=None):
-        if make_entry is not None:
-            e = make_entry(entries_frame, placeholder)
-        else:
-            e = ctk.CTkEntry(entries_frame, placeholder_text=placeholder, width=380)
+        e = make_entry(entries_frame, placeholder)
         e.pack(anchor="w", pady=1)
         entry_list.append(e)
 
@@ -948,13 +949,13 @@ class EditClientDialog(ctk.CTkToplevel):
 
         widgets = {}
 
-        e1 = ctk.CTkEntry(inner, placeholder_text="Address Line 1 *", width=380)
+        e1 = AutocompleteEntry(inner, search_address_line1, placeholder="Address Line 1 *", width=380)
         e1.pack(anchor="w", pady=1)
         if addr.get("line1"):
             e1.insert(0, addr["line1"])
         widgets["line1"] = e1
 
-        e2 = ctk.CTkEntry(inner, placeholder_text="Address Line 2 (optional)", width=380)
+        e2 = AutocompleteEntry(inner, search_address_line2, placeholder="Address Line 2 (optional)", width=380)
         e2.pack(anchor="w", pady=1)
         if addr.get("line2"):
             e2.insert(0, addr["line2"])
@@ -963,19 +964,19 @@ class EditClientDialog(ctk.CTkToplevel):
         city_row = ctk.CTkFrame(inner, fg_color="transparent")
         city_row.pack(anchor="w", pady=1)
 
-        e_city = ctk.CTkEntry(city_row, placeholder_text="City *", width=190)
+        e_city = AutocompleteEntry(city_row, search_cities, placeholder="City *", width=190)
         e_city.pack(side="left", padx=(0, 6))
         if addr.get("city"):
             e_city.insert(0, addr["city"])
         widgets["city"] = e_city
 
-        e_state = ctk.CTkEntry(city_row, placeholder_text="State *", width=80)
+        e_state = AutocompleteEntry(city_row, search_states, placeholder="State *", width=80)
         e_state.pack(side="left", padx=(0, 6))
         if addr.get("state"):
             e_state.insert(0, addr["state"])
         widgets["state"] = e_state
 
-        e_zip = ctk.CTkEntry(city_row, placeholder_text="Zip Code *", width=110)
+        e_zip = AutocompleteEntry(city_row, search_zip_codes, placeholder="Zip Code *", width=110)
         e_zip.pack(side="left")
         if addr.get("zip_code"):
             e_zip.insert(0, addr["zip_code"])
@@ -1051,12 +1052,12 @@ class EditJobSiteDialog(ctk.CTkToplevel):
         inner = ctk.CTkFrame(frame, fg_color="transparent")
         inner.pack(fill="x", padx=8, pady=8)
 
-        self._line1 = ctk.CTkEntry(inner, placeholder_text="Address Line 1 *", width=390)
+        self._line1 = AutocompleteEntry(inner, search_address_line1, placeholder="Address Line 1 *", width=390)
         self._line1.pack(anchor="w", pady=1)
         if js.get("line1"):
             self._line1.insert(0, js["line1"])
 
-        self._line2 = ctk.CTkEntry(inner, placeholder_text="Address Line 2 (optional)", width=390)
+        self._line2 = AutocompleteEntry(inner, search_address_line2, placeholder="Address Line 2 (optional)", width=390)
         self._line2.pack(anchor="w", pady=1)
         if js.get("line2"):
             self._line2.insert(0, js["line2"])
@@ -1064,17 +1065,17 @@ class EditJobSiteDialog(ctk.CTkToplevel):
         city_row = ctk.CTkFrame(inner, fg_color="transparent")
         city_row.pack(anchor="w", pady=1)
 
-        self._city = ctk.CTkEntry(city_row, placeholder_text="City *", width=190)
+        self._city = AutocompleteEntry(city_row, search_cities, placeholder="City *", width=190)
         self._city.pack(side="left", padx=(0, 6))
         if js.get("city"):
             self._city.insert(0, js["city"])
 
-        self._state = ctk.CTkEntry(city_row, placeholder_text="State *", width=80)
+        self._state = AutocompleteEntry(city_row, search_states, placeholder="State *", width=80)
         self._state.pack(side="left", padx=(0, 6))
         if js.get("state"):
             self._state.insert(0, js["state"])
 
-        self._zip = ctk.CTkEntry(city_row, placeholder_text="Zip *", width=110)
+        self._zip = AutocompleteEntry(city_row, search_zip_codes, placeholder="Zip *", width=110)
         self._zip.pack(side="left")
         if js.get("zip_code"):
             self._zip.insert(0, js["zip_code"])

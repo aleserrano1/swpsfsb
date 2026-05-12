@@ -116,3 +116,45 @@ def update_client(client_id: int, names: list[str], emails: list[str],
 def delete_client(client_id: int) -> None:
     with db.transaction() as cur:
         cur.execute("DELETE FROM clients WHERE id=?", (client_id,))
+
+
+def _search_field(table: str, column: str, q: str, limit: int = 8) -> list[str]:
+    if not q:
+        return []
+    rows = db.query(
+        f"SELECT DISTINCT {column} FROM {table} WHERE {column} LIKE ? ORDER BY {column} LIMIT ?",
+        (f"%{q}%", limit),
+    )
+    return [r[column] for r in rows if r[column]]
+
+
+def search_names(q: str) -> list[str]:
+    return _search_field("client_names", "value", q)
+
+
+def search_emails(q: str) -> list[str]:
+    return _search_field("client_emails", "value", q)
+
+
+def search_phones(q: str) -> list[str]:
+    return _search_field("client_phones", "value", q)
+
+
+def search_address_line1(q: str) -> list[str]:
+    return _search_field("client_addresses", "address_line1", q)
+
+
+def search_address_line2(q: str) -> list[str]:
+    return _search_field("client_addresses", "address_line2", q)
+
+
+def search_cities(q: str) -> list[str]:
+    return _search_field("client_addresses", "city", q)
+
+
+def search_states(q: str) -> list[str]:
+    return _search_field("client_addresses", "state", q)
+
+
+def search_zip_codes(q: str) -> list[str]:
+    return _search_field("client_addresses", "zip_code", q)

@@ -2,9 +2,14 @@
 import customtkinter as ctk
 
 from models.project import create as create_project
-from models.client import add_client
+from models.client import (
+    add_client,
+    search_names, search_emails, search_phones,
+    search_address_line1, search_address_line2,
+    search_cities, search_states, search_zip_codes,
+)
 from ui.theme import COLOR_THEMES, COMPANY_LABELS
-from ui.widgets import label, entry, button, section_label, show_error, phone_entry
+from ui.widgets import label, entry, button, section_label, show_error, AutocompleteEntry
 
 
 class ProjectFormScreen(ctk.CTkFrame):
@@ -44,17 +49,17 @@ class ProjectFormScreen(ctk.CTkFrame):
         job_site_frame.pack(anchor="w", pady=(0, 8))
         js_inner = ctk.CTkFrame(job_site_frame, fg_color="transparent")
         js_inner.pack(fill="x", padx=8, pady=6)
-        self._js_line1 = entry(js_inner, placeholder="Address Line 1 *", width=360)
+        self._js_line1 = AutocompleteEntry(js_inner, search_address_line1, placeholder="Address Line 1 *", width=360)
         self._js_line1.pack(anchor="w", pady=1)
-        self._js_line2 = entry(js_inner, placeholder="Address Line 2 (optional)", width=360)
+        self._js_line2 = AutocompleteEntry(js_inner, search_address_line2, placeholder="Address Line 2 (optional)", width=360)
         self._js_line2.pack(anchor="w", pady=1)
         js_city_row = ctk.CTkFrame(js_inner, fg_color="transparent")
         js_city_row.pack(anchor="w", pady=1)
-        self._js_city = entry(js_city_row, placeholder="City *", width=190)
+        self._js_city = AutocompleteEntry(js_city_row, search_cities, placeholder="City *", width=190)
         self._js_city.pack(side="left", padx=(0, 6))
-        self._js_state = entry(js_city_row, placeholder="State *", width=80)
+        self._js_state = AutocompleteEntry(js_city_row, search_states, placeholder="State *", width=80)
         self._js_state.pack(side="left", padx=(0, 6))
-        self._js_zip = entry(js_city_row, placeholder="Zip Code *", width=110)
+        self._js_zip = AutocompleteEntry(js_city_row, search_zip_codes, placeholder="Zip Code *", width=110)
         self._js_zip.pack(side="left")
 
         # Tax rate
@@ -240,16 +245,21 @@ class ClientBlock(ctk.CTkFrame):
         entries_frame = ctk.CTkFrame(row_container, fg_color="transparent")
         entries_frame.pack(fill="x")
 
-        e = phone_entry(entries_frame, placeholder=placeholder, width=300) if key == "phones" else entry(entries_frame, placeholder=placeholder, width=300)
+        e = self._make_field_entry(entries_frame, key, placeholder, 300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
 
     def _add_field(self, key: str, placeholder: str, row_container):
         children = row_container.winfo_children()
         entries_frame = children[-1]
-        e = phone_entry(entries_frame, placeholder=placeholder, width=300) if key == "phones" else entry(entries_frame, placeholder=placeholder, width=300)
+        e = self._make_field_entry(entries_frame, key, placeholder, 300)
         e.pack(anchor="w", pady=1)
         self._field_rows[key].append((entries_frame, e))
+
+    def _make_field_entry(self, parent, key: str, placeholder: str, width: int):
+        _search = {"names": search_names, "emails": search_emails, "phones": search_phones}
+        return AutocompleteEntry(parent, _search[key], placeholder=placeholder,
+                                 width=width, phone_mode=(key == "phones"))
 
     def _build_address_section(self):
         container = ctk.CTkFrame(self._fields_frame, fg_color="transparent")
@@ -275,23 +285,23 @@ class ClientBlock(ctk.CTkFrame):
 
         widgets = {}
 
-        e1 = entry(inner, placeholder="Address Line 1 *", width=340)
+        e1 = AutocompleteEntry(inner, search_address_line1, placeholder="Address Line 1 *", width=340)
         e1.pack(anchor="w", pady=1)
         widgets["line1"] = e1
 
-        e2 = entry(inner, placeholder="Address Line 2 (optional)", width=340)
+        e2 = AutocompleteEntry(inner, search_address_line2, placeholder="Address Line 2 (optional)", width=340)
         e2.pack(anchor="w", pady=1)
         widgets["line2"] = e2
 
         city_row = ctk.CTkFrame(inner, fg_color="transparent")
         city_row.pack(anchor="w", pady=1)
-        e_city = entry(city_row, placeholder="City *", width=190)
+        e_city = AutocompleteEntry(city_row, search_cities, placeholder="City *", width=190)
         e_city.pack(side="left", padx=(0, 6))
         widgets["city"] = e_city
-        e_state = entry(city_row, placeholder="State *", width=80)
+        e_state = AutocompleteEntry(city_row, search_states, placeholder="State *", width=80)
         e_state.pack(side="left", padx=(0, 6))
         widgets["state"] = e_state
-        e_zip = entry(city_row, placeholder="Zip Code *", width=110)
+        e_zip = AutocompleteEntry(city_row, search_zip_codes, placeholder="Zip Code *", width=110)
         e_zip.pack(side="left")
         widgets["zip_code"] = e_zip
 
