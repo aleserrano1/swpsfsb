@@ -1,10 +1,12 @@
 """Project list with search and color-accented cards."""
+import os
 import customtkinter as ctk
 
-from models.project import all_projects, search
+from models.project import all_projects, search, get_financials
 from models.client import clients_for_project
+from pdf.accounts_receivable import generate as generate_ar
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, scrollable_frame
+from ui.widgets import label, button, scrollable_frame, show_error, show_info
 
 
 class ProjectListScreen(ctk.CTkFrame):
@@ -23,6 +25,8 @@ class ProjectListScreen(ctk.CTkFrame):
         label(top, "Projects", bold=True, size=22).pack(side="left")
         button(top, "+ New Project", self.on_new_project, width=140,
                fg_color="#4caf50", hover_color="#2e7d32").pack(side="right")
+        button(top, "AR Report", self._generate_ar_report, width=100,
+               fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right", padx=(0, 8))
 
         # Search bar
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -64,6 +68,44 @@ class ProjectListScreen(ctk.CTkFrame):
 
         for proj in projects:
             self._make_card(proj)
+
+    def _generate_ar_report(self):
+        import tkinter.filedialog as fd
+
+        path = fd.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")],
+            initialfile="AR_Report.pdf",
+            title="Save Accounts Receivable Report",
+        )
+        if not path:
+            return
+
+        projects = all_projects()
+        if not projects:
+            show_info("No Projects", "No projects found to include in the report.")
+            return
+
+        projects_data = []
+        for proj in projects:
+            clients = clients_for_project(proj.id)
+            client_names = [n for c in clients for n in c.names]
+            financials = get_financials(proj.id)
+            projects_data.append({
+                "project_id": proj.project_id,
+                "company":    proj.company,
+                "status":     proj.status,
+                "created_at": proj.created_at,
+                "client_names": client_names,
+                "financials": financials,
+            })
+
+        try:
+            generate_ar(path, projects_data)
+            show_info("Report Generated",
+                      f"Accounts Receivable Report saved:\n{os.path.basename(path)}")
+        except Exception as e:
+            show_error("PDF Error", f"Could not generate report:\n{e}")
 
     def _make_card(self, proj):
         color = COLOR_THEMES.get(proj.color_theme, COLOR_THEMES["blue"])
