@@ -64,10 +64,12 @@ class ProjectDetailScreen(ctk.CTkFrame):
             widget.destroy()
         self._build_ui()
         if active_tab:
-            try:
-                self._tabview.set(active_tab)
-            except Exception:
-                pass
+            def _restore(tab=active_tab):
+                try:
+                    self._tabview.set(tab)
+                except Exception:
+                    pass
+            self.after(0, _restore)
 
     def _build_ui(self):
         proj = self._project
@@ -338,6 +340,10 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if not svc.is_hidden:
             sf_container.pack(fill="x", padx=(28, 12), pady=(0, 4))
 
+        is_original_on_binding = (
+            self._project.status == "binding" and svc.type == "original_service"
+        )
+
         def _render_subfields():
             for w in sf_container.winfo_children():
                 w.destroy()
@@ -356,23 +362,33 @@ class ProjectDetailScreen(ctk.CTkFrame):
                 button(sf_row, "×", _del_sf, width=24, height=20,
                        fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=2)
 
-            # Inline "add subfield" row
-            add_row = ctk.CTkFrame(sf_container, fg_color="transparent")
-            add_row.pack(fill="x", pady=(2, 0))
-            sf_entry = ctk.CTkEntry(add_row, placeholder_text="Add subfield detail...",
-                                    height=26, corner_radius=6)
-            sf_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+            if is_original_on_binding:
+                lock_row = ctk.CTkFrame(sf_container, fg_color="transparent")
+                lock_row.pack(fill="x", pady=(2, 0))
+                label(lock_row, "Sub-lines locked — cannot add to original services while project is binding.",
+                      size=10, fg="#fb8c00").pack(side="left")
+            else:
+                # Inline "add subfield" row
+                add_row = ctk.CTkFrame(sf_container, fg_color="transparent")
+                add_row.pack(fill="x", pady=(2, 0))
+                sf_entry = ctk.CTkEntry(add_row, placeholder_text="Add subfield detail...",
+                                        height=26, corner_radius=6)
+                sf_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
-            def _add_sf():
-                text = sf_entry.get().strip()
-                if not text:
-                    return
-                new_sf = add_subfield(svc.id, text, sort_order=len(svc.subfields))
-                svc.subfields.append(new_sf)
-                _render_subfields()
+                def _add_sf():
+                    text = sf_entry.get().strip()
+                    if not text:
+                        return
+                    try:
+                        new_sf = add_subfield(svc.id, text, sort_order=len(svc.subfields))
+                    except ValueError as exc:
+                        show_error("Not Allowed", str(exc))
+                        return
+                    svc.subfields.append(new_sf)
+                    _render_subfields()
 
-            button(add_row, "+", _add_sf, width=28, height=26,
-                   fg_color=accent_color, hover_color="#1565c0").pack(side="right")
+                button(add_row, "+", _add_sf, width=28, height=26,
+                       fg_color=accent_color, hover_color="#1565c0").pack(side="right")
 
         _render_subfields()
 

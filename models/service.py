@@ -53,6 +53,16 @@ def subfields_for_service(service_id: int) -> list[Subfield]:
 
 
 def add_subfield(service_id: int, text: str, sort_order: int = 0) -> Subfield:
+    svc_row = db.query_one(
+        """SELECT s.type, p.status FROM services s
+           JOIN projects p ON p.id = s.project_id
+           WHERE s.id=?""",
+        (service_id,),
+    )
+    if svc_row and svc_row["type"] == "original_service" and svc_row["status"] == "binding":
+        raise ValueError(
+            "Sub-lines cannot be added to original service line items while the project is binding."
+        )
     with db.transaction() as cur:
         cur.execute(
             "INSERT INTO service_subfields (service_id, text, sort_order) VALUES (?,?,?)",
