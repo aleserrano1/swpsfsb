@@ -4,7 +4,7 @@ import customtkinter as ctk
 import tkinter.messagebox as mb
 
 import config
-from models.project import get_by_id, get_financials, set_binding, update_proposal_texts, update_master_texts, update_color
+from models.project import get_by_id, get_financials, set_binding, set_completed, update_proposal_texts, update_master_texts, update_color
 from models.client import (
     clients_for_project,
     search_names, search_emails, search_phones,
@@ -127,11 +127,17 @@ class ProjectDetailScreen(ctk.CTkFrame):
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.pack(fill="x", padx=32, pady=(12, 0))
 
-        is_binding = proj.status == "binding"
+        status = proj.status
+        is_binding = status == "binding"
+        is_completed = status == "completed"
 
-        if is_binding:
+        if is_completed:
+            pass  # no transition buttons on completed projects
+        elif is_binding:
             button(actions, "Generate Change Order", self._generate_change_order, width=185,
                    fg_color="#fb8c00", hover_color="#e65100").pack(side="left", padx=(0, 8))
+            button(actions, "Mark as Completed", self._mark_completed, width=160,
+                   fg_color="#546e7a", hover_color="#37474f").pack(side="left", padx=(0, 8))
         else:
             button(actions, "Generate Proposal", self._generate_proposal, width=160,
                    fg_color="#4a90d9", hover_color="#2c6faf").pack(side="left", padx=(0, 8))
@@ -230,6 +236,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
     def _build_services_tab(self, tab):
         status = self._project.status
         is_binding = status == "binding"
+        is_completed = status == "completed"
 
         top = ctk.CTkFrame(tab, fg_color="transparent")
         top.pack(fill="x", pady=(8, 4))
@@ -238,9 +245,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             top, "+ Add Service",
             lambda: self._open_service_form("original_service"),
             width=140,
-            fg_color="#4caf50" if not is_binding else "gray",
-            hover_color="#2e7d32" if not is_binding else "gray",
-            state="normal" if not is_binding else "disabled",
+            fg_color="#4caf50" if not is_binding and not is_completed else "gray",
+            hover_color="#2e7d32" if not is_binding and not is_completed else "gray",
+            state="normal" if not is_binding and not is_completed else "disabled",
         )
         add_svc_btn.pack(side="left", padx=(0, 8))
 
@@ -254,7 +261,12 @@ class ProjectDetailScreen(ctk.CTkFrame):
         )
         add_co_btn.pack(side="left", padx=(0, 8))
 
-        hint = "Change Orders available after marking Binding." if not is_binding else "Project is binding — add Change Orders only."
+        if is_completed:
+            hint = "Project is completed — no further service changes allowed."
+        elif is_binding:
+            hint = "Project is binding — add Change Orders only."
+        else:
+            hint = "Change Orders available after marking Binding."
         label(top, hint, size=11, fg="gray").pack(side="left")
 
         # Down payment (editable)
@@ -426,7 +438,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
     # ── Payments Tab ────────────────────────────────────────────────────────
 
     def _build_payments_tab(self, tab):
-        if self._project.status != "binding":
+        status = self._project.status
+
+        if status == "non_binding":
             wrapper = ctk.CTkFrame(tab, fg_color="transparent")
             wrapper.pack(fill="both", expand=True)
             label(wrapper, "Payments Locked", size=16, bold=True, fg="#fb8c00").pack(pady=(40, 8))
@@ -440,8 +454,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
 
         top = ctk.CTkFrame(tab, fg_color="transparent")
         top.pack(fill="x", pady=(8, 4))
-        button(top, "+ Add Payment", self._open_payment_form, width=140,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(side="left")
+        if status == "binding":
+            button(top, "+ Add Payment", self._open_payment_form, width=140,
+                   fg_color="#4caf50", hover_color="#2e7d32").pack(side="left")
 
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll.pack(fill="both", expand=True, pady=4)
@@ -626,6 +641,31 @@ class ProjectDetailScreen(ctk.CTkFrame):
         show_info("Project Binding", "Project has been marked as binding.")
         self.refresh()
 
+    def _mark_completed(self):
+        proj = self._project
+        if proj.status == "completed":
+            show_info("Already Completed", "This project is already completed.")
+            return
+
+        fin = get_financials(self.project_db_id)
+        if abs(fin["balance"]) > 0.005:
+            show_error(
+                "Balance Outstanding",
+                f"This project cannot be marked as completed until the balance is fully paid.\n\n"
+                f"Remaining balance: ${fin['balance']:,.2f}",
+            )
+            return
+
+        if not ask_yes_no(
+            "Mark as Completed",
+            "Mark this project as completed?\n\nNo further services or payments can be added after this.",
+        ):
+            return
+
+        set_completed(self.project_db_id)
+        show_info("Project Completed", "Project has been marked as completed.")
+        self.refresh()
+
     def _generate_master(self):
         proj = self._project
         cfg = config.load()
@@ -689,6 +729,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
 
     def _open_service_form(self, service_type: str):
         status = self._project.status
+        if status == "completed":
+            show_error("Not Allowed", "This project is completed. No further services can be added.")
+            return
         if status == "non_binding" and service_type == "order_change":
             show_error("Not Allowed", "Change Orders can only be added after the project is marked as Binding.")
             return

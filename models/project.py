@@ -128,6 +128,13 @@ def set_binding(project_db_id: int) -> None:
         )
 
 
+def set_completed(project_db_id: int) -> None:
+    with db.transaction() as cur:
+        cur.execute(
+            "UPDATE projects SET status='completed' WHERE id=?", (project_db_id,)
+        )
+
+
 def update_proposal_texts(project_db_id: int, description: str, note: str) -> None:
     with db.transaction() as cur:
         cur.execute(

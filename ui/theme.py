@@ -21,9 +21,11 @@ COMPANY_LABELS = {
 STATUS_COLORS = {
     "non_binding": "#fb8c00",
     "binding":     "#4caf50",
+    "completed":   "#546e7a",
 }
 
 STATUS_LABELS = {
     "non_binding": "Non-Binding",
     "binding":     "Binding",
+    "completed":   "Completed",
 }

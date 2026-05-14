@@ -52,6 +52,9 @@ class PaymentFormDialog(ctk.CTkToplevel):
             size=11, fg="gray",
         ).pack(anchor="w", pady=(0, 6))
 
+        project = get_by_id(self.project_db_id)
+        tax_factor = 1 + (project.tax_rate / 100) if project else 1.0
+
         visible_services = [
             s for s in services_for_project(self.project_db_id) if not s.is_hidden
         ]
@@ -60,9 +63,10 @@ class PaymentFormDialog(ctk.CTkToplevel):
             label(scroll, "No visible line items available.", size=11, fg="gray").pack(anchor="w")
         else:
             for svc in visible_services:
-                remaining = svc.amount - service_total_allocated(svc.id)
+                svc_taxed = svc.amount * tax_factor
+                remaining = svc_taxed - service_total_allocated(svc.id)
                 self._alloc_remaining[svc.id] = remaining
-                self._build_alloc_row(scroll, svc, remaining)
+                self._build_alloc_row(scroll, svc, remaining, svc_taxed)
 
         # Running total tracker
         tracker_frame = ctk.CTkFrame(scroll, fg_color=("gray90", "gray20"), corner_radius=8)
@@ -93,7 +97,7 @@ class PaymentFormDialog(ctk.CTkToplevel):
         button(scroll, "Save & Generate Invoice", self._save, width=220,
                fg_color="#4caf50", hover_color="#2e7d32").pack(pady=16)
 
-    def _build_alloc_row(self, parent, svc, remaining: float):
+    def _build_alloc_row(self, parent, svc, remaining: float, svc_taxed: float):
         card = ctk.CTkFrame(parent, corner_radius=8, fg_color=("gray86", "gray17"))
         card.pack(fill="x", pady=3)
 
@@ -104,7 +108,7 @@ class PaymentFormDialog(ctk.CTkToplevel):
         if svc.type == "order_change":
             svc_label += "  [Change Order]"
         label(top_row, svc_label, size=12, bold=True).pack(side="left", anchor="w")
-        label(top_row, f"Total: ${svc.amount:,.2f}", size=11, fg="gray").pack(side="right")
+        label(top_row, f"Total (w/ tax): ${svc_taxed:,.2f}", size=11, fg="gray").pack(side="right")
 
         bottom_row = ctk.CTkFrame(card, fg_color="transparent")
         bottom_row.pack(fill="x", padx=10, pady=(2, 8))

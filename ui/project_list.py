@@ -1,5 +1,6 @@
 """Project list with search and color-accented cards."""
 import os
+from datetime import datetime
 import customtkinter as ctk
 
 from models.project import all_projects, search, get_financials
@@ -70,15 +71,12 @@ class ProjectListScreen(ctk.CTkFrame):
             self._make_card(proj)
 
     def _generate_ar_report(self):
-        import tkinter.filedialog as fd
+        import config as cfg
 
-        path = fd.asksaveasfilename(
-            defaultextension=".pdf",
-            filetypes=[("PDF files", "*.pdf")],
-            initialfile="AR_Report.pdf",
-            title="Save Accounts Receivable Report",
-        )
-        if not path:
+        conf = cfg.load()
+        base_dir = conf.get("base_output_dir", "").strip()
+        if not base_dir or not os.path.isdir(base_dir):
+            show_error("AR Report", "Base output directory is not configured or does not exist.")
             return
 
         projects = all_projects()
@@ -100,10 +98,14 @@ class ProjectListScreen(ctk.CTkFrame):
                 "financials": financials,
             })
 
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"AccountsReceivableReport_{ts}.pdf"
+        path = os.path.join(base_dir, filename)
+
         try:
             generate_ar(path, projects_data)
             show_info("Report Generated",
-                      f"Accounts Receivable Report saved:\n{os.path.basename(path)}")
+                      f"Accounts Receivable Report saved:\n{filename}")
         except Exception as e:
             show_error("PDF Error", f"Could not generate report:\n{e}")
 

@@ -11,6 +11,7 @@ from pdf.base import get_styles, hr, standard_table_style, DARK, MID_GRAY, LIGHT
 _STATUS_LABELS = {
     "non_binding": "Non-Binding",
     "binding": "Binding",
+    "completed": "Completed",
 }
 
 _COMPANY_LABELS = {

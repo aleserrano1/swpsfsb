@@ -13,6 +13,7 @@ from pdf.base import (
 _STATUS_LABELS = {
     "non_binding": "Non-Binding",
     "binding": "Binding",
+    "completed": "Completed",
 }
 
 
@@ -131,7 +132,9 @@ def generate(path: str, project, clients: list, services: list,
     elements.append(hr())
     elements.append(Paragraph("LINE ITEMS", styles["section_header"]))
 
-    li_data = [["#", "Description", "Type", "Contract\nAmount", "Paid to\nDate", "Remaining\nBalance"]]
+    tax_factor = 1 + financials["tax_rate"] / 100
+
+    li_data = [["#", "Description", "Type", "Total\n(w/ Tax)", "Paid to\nDate", "Remaining\nBalance"]]
     li_extra = []  # (row_idx, tag) for custom styling
 
     for i, svc in enumerate(services):
@@ -147,14 +150,15 @@ def generate(path: str, project, clients: list, services: list,
             ])
             li_extra.append((len(li_data) - 1, "hidden"))
         else:
+            svc_taxed = svc.amount * tax_factor
             paid = svc_paid.get(svc.id, 0.0)
             li_data.append([
                 str(i + 1),
                 svc.description or "—",
                 type_label,
-                f"${svc.amount:,.2f}",
+                f"${svc_taxed:,.2f}",
                 f"${paid:,.2f}",
-                f"${svc.amount - paid:,.2f}",
+                f"${svc_taxed - paid:,.2f}",
             ])
 
         for sf in svc.subfields:

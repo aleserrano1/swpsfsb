@@ -120,6 +120,8 @@ def add_service(project_db_id: int, description: str, amount: float,
     proj_row = db.query_one("SELECT status FROM projects WHERE id=?", (project_db_id,))
     if proj_row:
         status = proj_row["status"]
+        if status == "completed":
+            raise ValueError("Services cannot be added to a completed project.")
         allowed = _ALLOWED_TYPE.get(status)
         if allowed and service_type != allowed:
             raise ValueError(

@@ -101,7 +101,11 @@ def add_payment(
     from models.service import services_for_project
 
     proj = get_project(project_db_id)
-    if proj is None or proj.status != "binding":
+    if proj is None:
+        raise ValueError("Project not found.")
+    if proj.status == "completed":
+        raise ValueError("Payments cannot be added to a completed project.")
+    if proj.status != "binding":
         raise ValueError("Payments can only be created after the project is marked as binding.")
 
     fin = get_financials(project_db_id)
@@ -127,6 +131,7 @@ def add_payment(
             f"Allocation total (${alloc_total:,.2f}) must equal payment amount (${amount:,.2f})."
         )
 
+    tax_factor = 1 + proj.tax_rate / 100
     visible_services = {
         s.id: s for s in services_for_project(project_db_id) if not s.is_hidden
     }
@@ -138,12 +143,13 @@ def add_payment(
         if svc_id not in visible_services:
             raise ValueError(f"Service ID {svc_id} is not available for allocation.")
         svc = visible_services[svc_id]
+        svc_taxed = svc.amount * tax_factor
         already = service_total_allocated(svc_id)
-        remaining = svc.amount - already
+        remaining = svc_taxed - already
         if alloc_amt > remaining + 0.005:
             raise ValueError(
                 f"Allocation of ${alloc_amt:,.2f} to '{svc.description}' exceeds "
-                f"its remaining balance of ${remaining:,.2f}."
+                f"its remaining balance of ${remaining:,.2f} (including tax)."
             )
 
     now = datetime.now().isoformat(timespec="seconds")
