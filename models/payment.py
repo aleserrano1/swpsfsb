@@ -171,6 +171,12 @@ def add_payment(
 
 
 def mark_paid(payment_id: int, payment_type: str, payment_description: str) -> Payment:
+    payment = get_by_id(payment_id)
+    if payment:
+        from models.project import get_by_id as get_project
+        proj = get_project(payment.project_id)
+        if proj and proj.status == "completed":
+            raise ValueError("Payments cannot be modified on a completed project.")
     with db.transaction() as cur:
         cur.execute(
             "UPDATE payments SET status='paid', payment_type=?, payment_description=? WHERE id=?",
@@ -186,6 +192,10 @@ def delete_payment(payment_id: int) -> None:
         raise ValueError("Payment not found.")
     if payment.status == "paid":
         raise ValueError("Paid payments cannot be deleted.")
+    from models.project import get_by_id as get_project
+    proj = get_project(payment.project_id)
+    if proj and proj.status == "completed":
+        raise ValueError("Payments cannot be deleted from a completed project.")
     with db.transaction() as cur:
         cur.execute("DELETE FROM payments WHERE id=?", (payment_id,))
 

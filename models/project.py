@@ -151,7 +151,14 @@ def update_master_texts(project_db_id: int, description: str, note: str) -> None
         )
 
 
+def _assert_not_completed(project_db_id: int) -> None:
+    row = db.query_one("SELECT status FROM projects WHERE id=?", (project_db_id,))
+    if row and row["status"] == "completed":
+        raise ValueError("This project is completed and cannot be modified.")
+
+
 def update_down_payment(project_db_id: int, amount: float) -> None:
+    _assert_not_completed(project_db_id)
     with db.transaction() as cur:
         cur.execute(
             "UPDATE projects SET down_payment=? WHERE id=?", (amount, project_db_id)
@@ -166,6 +173,7 @@ def update_color(project_db_id: int, color: str) -> None:
 
 
 def update_job_site(project_db_id: int, job_site: dict) -> None:
+    _assert_not_completed(project_db_id)
     with db.transaction() as cur:
         cur.execute(
             """UPDATE projects SET
@@ -184,6 +192,7 @@ def update_job_site(project_db_id: int, job_site: dict) -> None:
 
 
 def update_tax_rate(project_db_id: int, tax_rate: float) -> None:
+    _assert_not_completed(project_db_id)
     with db.transaction() as cur:
         cur.execute(
             "UPDATE projects SET tax_rate=? WHERE id=?", (tax_rate, project_db_id)

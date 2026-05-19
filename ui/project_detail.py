@@ -144,8 +144,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             button(actions, "Mark as Binding", self._mark_binding, width=160,
                    fg_color="#4caf50", hover_color="#2e7d32").pack(side="left", padx=(0, 8))
         button(actions, "Generate Master File", self._generate_master, width=180).pack(side="left", padx=(0, 8))
-        button(actions, "Generate Quote", self._open_quote, width=140,
-               fg_color="#8e44ad", hover_color="#6a1f82").pack(side="left")
+        if not is_completed:
+            button(actions, "Generate Quote", self._open_quote, width=140,
+                   fg_color="#8e44ad", hover_color="#6a1f82").pack(side="left")
 
         # ── Tabs ─────────────────────────────────────────────────────────────
         self._tabview = ctk.CTkTabview(self, anchor="w")
@@ -161,6 +162,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
     # ── Overview Tab ────────────────────────────────────────────────────────
 
     def _build_overview_tab(self, tab):
+        is_completed = self._project.status == "completed"
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
 
@@ -174,8 +176,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             card_hdr.pack(fill="x", padx=12, pady=(8, 0))
             if len(self._clients) > 1:
                 label(card_hdr, f"Client {i+1}", bold=True, size=12).pack(side="left")
-            button(card_hdr, "Edit", lambda c=client: self._open_edit_client(c),
-                   width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
+            if not is_completed:
+                button(card_hdr, "Edit", lambda c=client: self._open_edit_client(c),
+                       width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
 
             inner = ctk.CTkFrame(frame, fg_color="transparent")
             inner.pack(anchor="w", padx=12, pady=(4, 8))
@@ -193,8 +196,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
         js_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
         js_hdr.pack(fill="x", pady=(12, 4))
         section_label(js_hdr, "JOB SITE").pack(side="left")
-        button(js_hdr, "Edit", self._open_edit_job_site,
-               width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
+        if not is_completed:
+            button(js_hdr, "Edit", self._open_edit_job_site,
+                   width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
         ctk.CTkFrame(scroll, corner_radius=8, fg_color=("gray90", "gray20")).pack(fill="x", pady=2)
         js_lines = _format_address_lines(self._project.job_site)
         for line in (js_lines or ["—"]):
@@ -206,10 +210,13 @@ class ProjectDetailScreen(ctk.CTkFrame):
         tr_card.pack(fill="x", pady=2)
         tr_inner = ctk.CTkFrame(tr_card, fg_color="transparent")
         tr_inner.pack(anchor="w", padx=12, pady=8)
-        self._tax_rate_entry = ctk.CTkEntry(tr_inner, width=100, placeholder_text="e.g. 8.5")
-        self._tax_rate_entry.insert(0, str(self._project.tax_rate))
-        self._tax_rate_entry.pack(side="left", padx=(0, 8))
-        button(tr_inner, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
+        if is_completed:
+            label(tr_inner, f"{self._project.tax_rate}%", size=12).pack(side="left")
+        else:
+            self._tax_rate_entry = ctk.CTkEntry(tr_inner, width=100, placeholder_text="e.g. 8.5")
+            self._tax_rate_entry.insert(0, str(self._project.tax_rate))
+            self._tax_rate_entry.pack(side="left", padx=(0, 8))
+            button(tr_inner, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
 
         # Financial summary
         section_label(scroll, "FINANCIAL SUMMARY").pack(anchor="w", pady=(16, 4))
@@ -275,11 +282,14 @@ class ProjectDetailScreen(ctk.CTkFrame):
         dp_inner = ctk.CTkFrame(dp_frame, fg_color="transparent")
         dp_inner.pack(fill="x", padx=12, pady=8)
         section_label(dp_inner, "DOWN PAYMENT ($)").pack(side="left", padx=(0, 10))
-        self._dp_entry = ctk.CTkEntry(dp_inner, width=130, placeholder_text="e.g. 1500")
-        self._dp_entry.insert(0, str(self._project.down_payment))
-        self._dp_entry.pack(side="left", padx=(0, 8))
-        button(dp_inner, "Update", self._save_down_payment,
-               width=80, height=28).pack(side="left")
+        if is_completed:
+            label(dp_inner, f"${self._project.down_payment:,.2f}", size=12).pack(side="left")
+        else:
+            self._dp_entry = ctk.CTkEntry(dp_inner, width=130, placeholder_text="e.g. 1500")
+            self._dp_entry.insert(0, str(self._project.down_payment))
+            self._dp_entry.pack(side="left", padx=(0, 8))
+            button(dp_inner, "Update", self._save_down_payment,
+                   width=80, height=28).pack(side="left")
 
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll.pack(fill="both", expand=True, pady=4)
@@ -311,6 +321,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
             label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=5)
 
     def _service_row(self, parent, svc, accent_color="#4a90d9"):
+        is_completed = self._project.status == "completed"
         hidden_bg = ("gray80", "gray25")
         card = ctk.CTkFrame(parent, corner_radius=8,
                             fg_color=hidden_bg if svc.is_hidden else ("gray86", "gray17"))
@@ -327,20 +338,21 @@ class ProjectDetailScreen(ctk.CTkFrame):
                           fg="gray" if svc.is_hidden else None)
         amt_label.pack(side="right")
 
-        button(header, "Delete", lambda s=svc: self._delete_service(s),
-               width=70, height=24, fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=8)
+        if not is_completed:
+            button(header, "Delete", lambda s=svc: self._delete_service(s),
+                   width=70, height=24, fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=8)
 
-        hide_label = "Show" if svc.is_hidden else "Hide"
-        hide_btn = button(header, hide_label, None,
-                          width=56, height=24, fg_color="#757575", hover_color="#424242")
-        hide_btn.pack(side="right", padx=(0, 4))
+            hide_label = "Show" if svc.is_hidden else "Hide"
+            hide_btn = button(header, hide_label, None,
+                              width=56, height=24, fg_color="#757575", hover_color="#424242")
+            hide_btn.pack(side="right", padx=(0, 4))
 
-        def _toggle_hidden(s=svc):
-            toggle_hidden(s.id)
-            self._maybe_regenerate_master()
-            self.refresh()
+            def _toggle_hidden(s=svc):
+                toggle_hidden(s.id)
+                self._maybe_regenerate_master()
+                self.refresh()
 
-        hide_btn.configure(command=_toggle_hidden)
+            hide_btn.configure(command=_toggle_hidden)
 
         if svc.is_hidden:
             ctk.CTkLabel(header, text="HIDDEN", font=ctk.CTkFont(size=9),
@@ -364,17 +376,20 @@ class ProjectDetailScreen(ctk.CTkFrame):
                 sf_row.pack(fill="x", pady=1)
                 label(sf_row, f"• {sf.text}", size=11, fg="gray").pack(side="left", anchor="w")
 
-                def _del_sf(sf_id=sf.id):
-                    if not self._verify_pin_for_binding("Enter PIN to delete this subfield:"):
-                        return
-                    delete_subfield(sf_id, authorized=True)
-                    svc.subfields = [s for s in svc.subfields if s.id != sf_id]
-                    _render_subfields()
+                if not is_completed:
+                    def _del_sf(sf_id=sf.id):
+                        if not self._verify_pin_for_binding("Enter PIN to delete this subfield:"):
+                            return
+                        delete_subfield(sf_id, authorized=True)
+                        svc.subfields = [s for s in svc.subfields if s.id != sf_id]
+                        _render_subfields()
 
-                button(sf_row, "×", _del_sf, width=24, height=20,
-                       fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=2)
+                    button(sf_row, "×", _del_sf, width=24, height=20,
+                           fg_color="#e53935", hover_color="#b71c1c").pack(side="right", padx=2)
 
-            if is_original_on_binding:
+            if is_completed:
+                pass  # read-only — no add row
+            elif is_original_on_binding:
                 lock_row = ctk.CTkFrame(sf_container, fg_color="transparent")
                 lock_row.pack(fill="x", pady=(2, 0))
                 label(lock_row, "Sub-lines locked — cannot add to original services while project is binding.",
@@ -425,6 +440,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
         self.refresh()
 
     def _save_down_payment(self):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         try:
             val = float(self._dp_entry.get().strip() or "0")
         except ValueError:
@@ -514,7 +532,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         ctk.CTkLabel(right, text=pmt.status.upper(),
                      font=ctk.CTkFont(size=10), fg_color=status_color,
                      text_color="white", corner_radius=6, padx=6, pady=2).pack(anchor="e", pady=2)
-        if pmt.status == "unpaid":
+        if pmt.status == "unpaid" and self._project.status != "completed":
             button(right, "Mark Paid", lambda p=pmt: self._mark_paid(p),
                    width=100, height=26, fg_color="#4a90d9", hover_color="#2c6faf").pack(anchor="e", pady=2)
             button(right, "Delete", lambda p=pmt: self._delete_payment(p),
@@ -523,12 +541,21 @@ class ProjectDetailScreen(ctk.CTkFrame):
     # ── Overview edit helpers ────────────────────────────────────────────────
 
     def _open_edit_client(self, client):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         EditClientDialog(self, client, on_save=self.refresh)
 
     def _open_edit_job_site(self):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         EditJobSiteDialog(self, self.project_db_id, self._project.job_site, on_save=self.refresh)
 
     def _save_tax_rate(self):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         try:
             val = float(self._tax_rate_entry.get().strip())
         except ValueError:
@@ -725,6 +752,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
             pass
 
     def _open_quote(self):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "Quotes cannot be generated for completed projects.")
+            return
         QuoteFormDialog(self, self.project_db_id, on_done=self._maybe_regenerate_master)
 
     def _open_service_form(self, service_type: str):
@@ -753,6 +783,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
         PaymentFormDialog(self, self.project_db_id, on_save=_on_save)
 
     def _mark_paid(self, payment):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         dialog = MarkPaidDialog(self, payment)
         self.wait_window(dialog)
         if dialog.cancelled:
@@ -799,6 +832,9 @@ class ProjectDetailScreen(ctk.CTkFrame):
         self.refresh()
 
     def _delete_payment(self, payment):
+        if self._project.status == "completed":
+            show_error("Not Allowed", "This project is completed and cannot be modified.")
+            return
         if not ask_yes_no(
             "Delete Invoice",
             f"Delete invoice for ${payment.amount:,.2f}?\nThis cannot be undone.",
