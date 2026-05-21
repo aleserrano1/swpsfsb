@@ -17,6 +17,7 @@ class App(ctk.CTk):
         self.title("Construction Project Manager")
         self.geometry("1100x720")
         self.minsize(900, 600)
+        self.configure(fg_color="#262c40")
         self._build_layout()
         self._start()
 
@@ -46,16 +47,16 @@ class App(ctk.CTk):
 
     def _build_layout(self):
         # ── Sidebar ──────────────────────────────────────────────────────────
-        self._sidebar = ctk.CTkFrame(self, width=190, corner_radius=0,
-                                     fg_color=("gray85", "#1a1a2e"))
-        self._sidebar.pack(side="left", fill="y")
+        self._sidebar = ctk.CTkFrame(self, width=200, corner_radius=18,
+                                     fg_color="#0d1826")
+        self._sidebar.pack(side="left", fill="y", padx=(12, 0), pady=12)
         self._sidebar.pack_propagate(False)
 
         ctk.CTkLabel(
             self._sidebar,
             text="SWPSFSB",
             font=ctk.CTkFont(size=15, weight="bold"),
-            text_color=("gray20", "#4a90d9"),
+            text_color="#7e67f5",
         ).pack(pady=(28, 24))
 
         self._nav_buttons = {}
@@ -66,17 +67,17 @@ class App(ctk.CTk):
             btn = ctk.CTkButton(
                 self._sidebar, text=text, command=cmd,
                 anchor="w", fg_color="transparent",
-                hover_color=("gray75", "#2b2b4e"),
-                text_color=("gray20", "white"),
-                height=38, corner_radius=8,
-                font=ctk.CTkFont(size=13),
+                hover_color="#1a2540",
+                text_color="#8292a1",
+                height=40, corner_radius=20,
+                font=ctk.CTkFont(size=13, weight="bold"),
             )
-            btn.pack(fill="x", padx=12, pady=2)
+            btn.pack(fill="x", padx=12, pady=3)
             self._nav_buttons[name] = btn
 
         # ── Content area ─────────────────────────────────────────────────────
         self._content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self._content.pack(side="left", fill="both", expand=True)
+        self._content.pack(side="left", fill="both", expand=True, padx=(8, 12), pady=12)
 
     def _clear_content(self):
         for widget in self._content.winfo_children():
@@ -85,9 +86,9 @@ class App(ctk.CTk):
     def _set_active_nav(self, name: str):
         for key, btn in self._nav_buttons.items():
             if key == name:
-                btn.configure(fg_color=("gray75", "#2b2b4e"))
+                btn.configure(fg_color="#7e67f5", text_color="#ffffff")
             else:
-                btn.configure(fg_color="transparent")
+                btn.configure(fg_color="transparent", text_color="#8292a1")
 
     def _show_projects(self):
         self._clear_content()
