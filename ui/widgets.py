@@ -42,7 +42,7 @@ def section_label(parent, text, **kwargs):
     return ctk.CTkLabel(
         parent, text=text,
         font=ctk.CTkFont(size=11, weight="bold"),
-        text_color="gray",
+        text_color="#8292a1",
         **kwargs,
     )
 
