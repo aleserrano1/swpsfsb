@@ -1,5 +1,6 @@
 """Project list with search and color-accented cards."""
 import os
+import tkinter as tk
 from datetime import datetime
 import customtkinter as ctk
 
@@ -8,6 +9,26 @@ from models.client import clients_for_project
 from pdf.accounts_receivable import generate as generate_ar
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
 from ui.widgets import label, button, scrollable_frame, show_error, show_info
+
+
+class _ProgressRing(tk.Canvas):
+    """Circular arc progress indicator drawn on a tkinter Canvas."""
+
+    def __init__(self, parent, size=76, percentage=0,
+                 track_color="#1c2d40", progress_color="#7e67f5",
+                 bg_color="#0d1826", **kwargs):
+        super().__init__(parent, width=size, height=size,
+                         bg=bg_color, highlightthickness=0, bd=0, **kwargs)
+        m, stroke = 7, 7
+        x0, y0, x1, y1 = m, m, size - m, size - m
+        self.create_arc(x0, y0, x1, y1, start=0, extent=359.9,
+                        style="arc", outline=track_color, width=stroke)
+        if percentage > 0:
+            self.create_arc(x0, y0, x1, y1, start=90,
+                            extent=-(360 * percentage / 100),
+                            style="arc", outline=progress_color, width=stroke)
+        self.create_text(size / 2, size / 2, text=f"{percentage}%",
+                         fill="white", font=("Segoe UI", 13, "bold"))
 
 
 class ProjectListScreen(ctk.CTkFrame):
@@ -110,71 +131,67 @@ class ProjectListScreen(ctk.CTkFrame):
             show_error("PDF Error", f"Could not generate report:\n{e}")
 
     def _make_card(self, proj):
-        color = COLOR_THEMES.get(proj.color_theme, COLOR_THEMES["blue"])
-        accent = color["hex"]
-        dark_accent = color["dark"]
+        # Financials for progress ring
+        fin = get_financials(proj.id)
+        total = fin["total"]
+        paid = fin["paid"]
+        pct = int(round((paid / total * 100) if total > 0 else 0))
+        pct = max(0, min(100, pct))
 
-        card = ctk.CTkFrame(self._scroll, corner_radius=10, fg_color=("white", "#2b2b2b"))
-        card.pack(fill="x", pady=5)
-        card.bind("<Button-1>", lambda e, p=proj: self.on_open_project(p.id))
-
-        # Left accent bar
-        bar = ctk.CTkFrame(card, width=6, corner_radius=0,
-                           fg_color=accent)
-        bar.pack(side="left", fill="y")
-        bar.bind("<Button-1>", lambda e, p=proj: self.on_open_project(p.id))
-
-        # Content
-        content = ctk.CTkFrame(card, fg_color="transparent")
-        content.pack(side="left", fill="both", expand=True, padx=16, pady=12)
-        content.bind("<Button-1>", lambda e, p=proj: self.on_open_project(p.id))
-
-        # Row 1: project ID + company
-        row1 = ctk.CTkFrame(content, fg_color="transparent")
-        row1.pack(fill="x")
-        label(row1, proj.project_id, bold=True, size=14).pack(side="left")
-
-        company_badge = ctk.CTkLabel(
-            row1,
-            text=COMPANY_LABELS.get(proj.company, proj.company),
-            font=ctk.CTkFont(size=10),
-            fg_color=accent,
-            text_color="white",
-            corner_radius=6,
-            padx=8, pady=2,
-        )
-        company_badge.pack(side="left", padx=(10, 0))
-
-        status_color = STATUS_COLORS.get(proj.status, "#888")
-        status_badge = ctk.CTkLabel(
-            row1,
-            text=STATUS_LABELS.get(proj.status, proj.status),
-            font=ctk.CTkFont(size=10),
-            fg_color=status_color,
-            text_color="white",
-            corner_radius=6,
-            padx=8, pady=2,
-        )
-        status_badge.pack(side="left", padx=(6, 0))
-
-        # Row 2: client names
+        # Client names
         clients = clients_for_project(proj.id)
         client_names = []
         for c in clients:
             client_names.extend(c.names)
         client_str = ", ".join(client_names) if client_names else "No client"
-        label(content, client_str, size=12, fg="gray").pack(anchor="w", pady=(2, 0))
 
-        # Row 3: job site
+        # Job site string (primary text)
         js = proj.job_site
         js_parts = [p for p in [
             js.get("line1"), js.get("line2"),
             ", ".join(filter(None, [js.get("city"), js.get("state")])),
             js.get("zip_code"),
         ] if p]
-        if js_parts:
-            label(content, f"Job Site: {', '.join(js_parts)}", size=11, fg="gray").pack(anchor="w")
+        job_site_str = ", ".join(js_parts) if js_parts else "No job site"
 
-        # Click area
-        for widget in [content, row1]:
-            widget.bind("<Button-1>", lambda e, p=proj: self.on_open_project(p.id))
+        # Card
+        card = ctk.CTkFrame(self._scroll, corner_radius=16, fg_color="#0d1826")
+        card.pack(fill="x", pady=5)
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=20, pady=16)
+
+        # ── Left text ────────────────────────────────────────────────────────
+        left = ctk.CTkFrame(inner, fg_color="transparent")
+        left.pack(side="left", fill="both", expand=True)
+
+        accent = COLOR_THEMES.get(proj.color_theme, COLOR_THEMES["blue"])["hex"]
+        badges = ctk.CTkFrame(left, fg_color="transparent")
+        badges.pack(anchor="w", pady=(0, 6))
+        ctk.CTkLabel(badges, text=COMPANY_LABELS.get(proj.company, proj.company),
+                     font=ctk.CTkFont(size=10), fg_color=accent,
+                     text_color="white", corner_radius=6, padx=8, pady=2).pack(side="left")
+        ctk.CTkLabel(badges, text=STATUS_LABELS.get(proj.status, proj.status),
+                     font=ctk.CTkFont(size=10),
+                     fg_color=STATUS_COLORS.get(proj.status, "#888"),
+                     text_color="white", corner_radius=6, padx=8, pady=2).pack(side="left", padx=(6, 0))
+
+        ctk.CTkLabel(left, text=job_site_str,
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color="#ffffff", anchor="w").pack(anchor="w")
+        ctk.CTkLabel(left, text=client_str,
+                     font=ctk.CTkFont(size=12), text_color="#8292a1",
+                     anchor="w").pack(anchor="w", pady=(3, 0))
+        ctk.CTkLabel(left, text=proj.project_id,
+                     font=ctk.CTkFont(size=11), text_color="#8292a1",
+                     anchor="w").pack(anchor="w", pady=(1, 0))
+
+        # ── Right: progress ring ─────────────────────────────────────────────
+        ring = _ProgressRing(inner, size=76, percentage=pct)
+        ring.pack(side="right", padx=(16, 0))
+
+        # Click bindings
+        def _open(e, p=proj):
+            self.on_open_project(p.id)
+        for w in [card, inner, left, badges, ring]:
+            w.bind("<Button-1>", _open)
