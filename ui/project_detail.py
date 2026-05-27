@@ -20,7 +20,7 @@ from pdf.change_order import generate as generate_change_order
 from pdf.invoice import generate_receipt
 from pdf.master import generate as generate_master
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, entry, section_label, show_error, show_info, ask_yes_no, AutocompleteEntry
+from ui.widgets import label, button, entry, section_label, textbox, show_error, show_info, ask_yes_no, AutocompleteEntry
 from ui.service_form import ServiceFormDialog
 from ui.payment_form import PaymentFormDialog
 from ui.quote_form import QuoteFormDialog
@@ -169,7 +169,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         # Client info
         section_label(scroll, "CLIENTS").pack(anchor="w", pady=(8, 4))
         for i, client in enumerate(self._clients):
-            frame = ctk.CTkFrame(scroll, corner_radius=8)
+            frame = ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826")
             frame.pack(fill="x", pady=3)
 
             card_hdr = ctk.CTkFrame(frame, fg_color="transparent")
@@ -199,21 +199,25 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if not is_completed:
             button(js_hdr, "Edit", self._open_edit_job_site,
                    width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
-        ctk.CTkFrame(scroll, corner_radius=8, fg_color=("gray90", "gray20")).pack(fill="x", pady=2)
+        ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826").pack(fill="x", pady=2)
         js_lines = _format_address_lines(self._project.job_site)
         for line in (js_lines or ["—"]):
             label(scroll, line, size=12).pack(anchor="w", padx=4)
 
         # Tax rate (editable)
         section_label(scroll, "TAX RATE (%)").pack(anchor="w", pady=(12, 4))
-        tr_card = ctk.CTkFrame(scroll, corner_radius=8)
+        tr_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826")
         tr_card.pack(fill="x", pady=2)
         tr_inner = ctk.CTkFrame(tr_card, fg_color="transparent")
         tr_inner.pack(anchor="w", padx=12, pady=8)
         if is_completed:
             label(tr_inner, f"{self._project.tax_rate}%", size=12).pack(side="left")
         else:
-            self._tax_rate_entry = ctk.CTkEntry(tr_inner, width=100, placeholder_text="e.g. 8.5")
+            self._tax_rate_entry = ctk.CTkEntry(
+                tr_inner, width=100, placeholder_text="e.g. 8.5",
+                fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+                corner_radius=10, placeholder_text_color="#8292a1",
+            )
             self._tax_rate_entry.insert(0, str(self._project.tax_rate))
             self._tax_rate_entry.pack(side="left", padx=(0, 8))
             button(tr_inner, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
@@ -230,8 +234,8 @@ class ProjectDetailScreen(ctk.CTkFrame):
             ("Balance Remaining", f"${fin['balance']:,.2f}"),
         ]
         for i, (lbl_text, val_text) in enumerate(rows):
-            row = ctk.CTkFrame(scroll, corner_radius=6,
-                               fg_color=("gray93", "gray18") if i % 2 == 0 else ("white", "gray23"))
+            row = ctk.CTkFrame(scroll, corner_radius=8,
+                               fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
             row.pack(fill="x", pady=1)
             label(row, lbl_text, size=12, bold=(lbl_text in ("Project Total", "Balance Remaining"))
                   ).pack(side="left", padx=12, pady=6)
@@ -277,7 +281,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
         label(top, hint, size=11, fg="gray").pack(side="left")
 
         # Down payment (editable)
-        dp_frame = ctk.CTkFrame(tab, corner_radius=8)
+        dp_frame = ctk.CTkFrame(tab, corner_radius=12, fg_color="#0d1826")
         dp_frame.pack(fill="x", pady=(8, 0))
         dp_inner = ctk.CTkFrame(dp_frame, fg_color="transparent")
         dp_inner.pack(fill="x", padx=12, pady=8)
@@ -285,7 +289,11 @@ class ProjectDetailScreen(ctk.CTkFrame):
         if is_completed:
             label(dp_inner, f"${self._project.down_payment:,.2f}", size=12).pack(side="left")
         else:
-            self._dp_entry = ctk.CTkEntry(dp_inner, width=130, placeholder_text="e.g. 1500")
+            self._dp_entry = ctk.CTkEntry(
+                dp_inner, width=130, placeholder_text="e.g. 1500",
+                fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+                corner_radius=10, placeholder_text_color="#8292a1",
+            )
             self._dp_entry.insert(0, str(self._project.down_payment))
             self._dp_entry.pack(side="left", padx=(0, 8))
             button(dp_inner, "Update", self._save_down_payment,
@@ -310,21 +318,21 @@ class ProjectDetailScreen(ctk.CTkFrame):
         # Totals
         fin = self._financials
         section_label(scroll, "TOTALS").pack(anchor="w", pady=(16, 4))
-        for lbl_text, val_text in [
+        for i, (lbl_text, val_text) in enumerate([
             ("Subtotal", f"${fin['subtotal']:,.2f}"),
             (f"Tax ({fin['tax_rate']:.1f}%)", f"${fin['tax']:,.2f}"),
             ("Total", f"${fin['total']:,.2f}"),
-        ]:
-            row = ctk.CTkFrame(scroll, corner_radius=6, fg_color=("gray93", "gray18"))
+        ]):
+            row = ctk.CTkFrame(scroll, corner_radius=8, fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
             row.pack(fill="x", pady=1)
             label(row, lbl_text, size=12).pack(side="left", padx=12, pady=5)
             label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=5)
 
     def _service_row(self, parent, svc, accent_color="#4a90d9"):
         is_completed = self._project.status == "completed"
-        hidden_bg = ("gray80", "gray25")
-        card = ctk.CTkFrame(parent, corner_radius=8,
-                            fg_color=hidden_bg if svc.is_hidden else ("gray86", "gray17"))
+        hidden_bg = "#111c2c"
+        card = ctk.CTkFrame(parent, corner_radius=12,
+                            fg_color=hidden_bg if svc.is_hidden else "#0d1826")
         card.pack(fill="x", pady=3)
 
         # Header row: description + amount + hide + delete
@@ -398,8 +406,12 @@ class ProjectDetailScreen(ctk.CTkFrame):
                 # Inline "add subfield" row
                 add_row = ctk.CTkFrame(sf_container, fg_color="transparent")
                 add_row.pack(fill="x", pady=(2, 0))
-                sf_entry = ctk.CTkEntry(add_row, placeholder_text="Add subfield detail...",
-                                        height=26, corner_radius=6)
+                sf_entry = ctk.CTkEntry(
+                    add_row, placeholder_text="Add subfield detail...",
+                    height=26, corner_radius=10,
+                    fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+                    placeholder_text_color="#8292a1",
+                )
                 sf_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
                 def _add_sf():
@@ -489,19 +501,19 @@ class ProjectDetailScreen(ctk.CTkFrame):
         # Balance summary
         fin = self._financials
         section_label(scroll, "BALANCE SUMMARY").pack(anchor="w", pady=(16, 4))
-        for lbl_text, val_text in [
+        for i, (lbl_text, val_text) in enumerate([
             ("Project Total", f"${fin['total']:,.2f}"),
             ("Total Paid",    f"${fin['paid']:,.2f}"),
             ("Balance",       f"${fin['balance']:,.2f}"),
-        ]:
-            row = ctk.CTkFrame(scroll, corner_radius=6, fg_color=("gray93", "gray18"))
+        ]):
+            row = ctk.CTkFrame(scroll, corner_radius=8, fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
             row.pack(fill="x", pady=1)
             label(row, lbl_text, size=12).pack(side="left", padx=12, pady=5)
             label(row, val_text, size=12, bold=(lbl_text == "Balance")).pack(side="right", padx=12, pady=5)
 
     def _payment_row(self, parent, pmt):
         status_color = "#4caf50" if pmt.status == "paid" else "#fb8c00"
-        row = ctk.CTkFrame(parent, corner_radius=8)
+        row = ctk.CTkFrame(parent, corner_radius=12, fg_color="#0d1826")
         row.pack(fill="x", pady=3)
         inner = ctk.CTkFrame(row, fg_color="transparent")
         inner.pack(fill="x", padx=12, pady=8)
@@ -867,6 +879,7 @@ class ProjectDetailScreen(ctk.CTkFrame):
 class ProposalTextDialog(ctk.CTkToplevel):
     def __init__(self, parent, existing_desc="", existing_note=""):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self.cancelled = False
         self.description = ""
         self.note = ""
@@ -877,16 +890,16 @@ class ProposalTextDialog(ctk.CTkToplevel):
         self._build_ui(existing_desc, existing_note)
 
     def _build_ui(self, desc, note):
-        label(self, "Proposal Details", bold=True, size=15).pack(pady=(20, 4))
+        label(self, "Proposal Details", bold=True, size=15, fg="#ffffff").pack(pady=(20, 4))
 
         section_label(self, "GENERAL DESCRIPTION (optional)").pack(anchor="w", padx=24, pady=(8, 2))
-        self._desc = ctk.CTkTextbox(self, width=400, height=90, corner_radius=8)
+        self._desc = textbox(self, width=400, height=90)
         self._desc.pack(padx=24)
         if desc:
             self._desc.insert("1.0", desc)
 
         section_label(self, "NOTE (optional)").pack(anchor="w", padx=24, pady=(8, 2))
-        self._note = ctk.CTkTextbox(self, width=400, height=90, corner_radius=8)
+        self._note = textbox(self, width=400, height=90)
         self._note.pack(padx=24)
         if note:
             self._note.insert("1.0", note)
@@ -911,6 +924,7 @@ class ProposalTextDialog(ctk.CTkToplevel):
 class MasterTextDialog(ctk.CTkToplevel):
     def __init__(self, parent, existing_desc="", existing_note=""):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self.cancelled = False
         self.description = ""
         self.note = ""
@@ -921,16 +935,16 @@ class MasterTextDialog(ctk.CTkToplevel):
         self._build_ui(existing_desc, existing_note)
 
     def _build_ui(self, desc, note):
-        label(self, "Master File Details", bold=True, size=15).pack(pady=(20, 4))
+        label(self, "Master File Details", bold=True, size=15, fg="#ffffff").pack(pady=(20, 4))
 
         section_label(self, "GENERAL DESCRIPTION (optional)").pack(anchor="w", padx=24, pady=(8, 2))
-        self._desc = ctk.CTkTextbox(self, width=400, height=90, corner_radius=8)
+        self._desc = textbox(self, width=400, height=90)
         self._desc.pack(padx=24)
         if desc:
             self._desc.insert("1.0", desc)
 
         section_label(self, "NOTE (optional)").pack(anchor="w", padx=24, pady=(8, 2))
-        self._note = ctk.CTkTextbox(self, width=400, height=90, corner_radius=8)
+        self._note = textbox(self, width=400, height=90)
         self._note.pack(padx=24)
         if note:
             self._note.insert("1.0", note)
@@ -955,6 +969,7 @@ class MasterTextDialog(ctk.CTkToplevel):
 class EditClientDialog(ctk.CTkToplevel):
     def __init__(self, parent, client, on_save):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self._client = client
         self._on_save = on_save
         self._name_entries = []
@@ -968,7 +983,7 @@ class EditClientDialog(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self):
-        label(self, "Edit Client", bold=True, size=15).pack(pady=(16, 4))
+        label(self, "Edit Client", bold=True, size=15, fg="#ffffff").pack(pady=(16, 4))
 
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=16, pady=4)
@@ -1035,8 +1050,7 @@ class EditClientDialog(ctk.CTkToplevel):
 
     def _add_address_block(self, addr=None):
         addr = addr or {}
-        block = ctk.CTkFrame(self._addresses_container,
-                              fg_color=("gray85", "gray25"), corner_radius=6)
+        block = ctk.CTkFrame(self._addresses_container, fg_color="#1e2d45", corner_radius=12)
         block.pack(fill="x", pady=3)
 
         inner = ctk.CTkFrame(block, fg_color="transparent")
@@ -1131,6 +1145,7 @@ class EditClientDialog(ctk.CTkToplevel):
 class EditJobSiteDialog(ctk.CTkToplevel):
     def __init__(self, parent, project_db_id, current_job_site, on_save):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self._project_db_id = project_db_id
         self._on_save = on_save
         self.title("Edit Job Site")
@@ -1140,9 +1155,9 @@ class EditJobSiteDialog(ctk.CTkToplevel):
         self._build_ui(current_job_site)
 
     def _build_ui(self, js):
-        label(self, "Edit Job Site", bold=True, size=15).pack(pady=(16, 8))
+        label(self, "Edit Job Site", bold=True, size=15, fg="#ffffff").pack(pady=(16, 8))
 
-        frame = ctk.CTkFrame(self, fg_color=("gray85", "gray25"), corner_radius=6)
+        frame = ctk.CTkFrame(self, fg_color="#0d1826", corner_radius=16)
         frame.pack(padx=24, fill="x")
         inner = ctk.CTkFrame(frame, fg_color="transparent")
         inner.pack(fill="x", padx=8, pady=8)
@@ -1218,6 +1233,7 @@ class EditJobSiteDialog(ctk.CTkToplevel):
 class MarkPaidDialog(ctk.CTkToplevel):
     def __init__(self, parent, payment):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self.cancelled = False
         self.payment_type = ""
         self.payment_description = ""
@@ -1228,9 +1244,9 @@ class MarkPaidDialog(ctk.CTkToplevel):
         self._build_ui(payment)
 
     def _build_ui(self, payment):
-        label(self, "Mark as Paid", bold=True, size=15).pack(pady=(20, 4))
+        label(self, "Mark as Paid", bold=True, size=15, fg="#ffffff").pack(pady=(20, 4))
         label(self, f"${payment.amount:,.2f}  —  {payment.description or f'Invoice #{payment.id}'}",
-              size=12, fg="gray").pack()
+              size=12, fg="#8292a1").pack()
 
         frame = ctk.CTkFrame(self, fg_color="transparent")
         frame.pack(fill="x", padx=24, pady=8)
@@ -1242,6 +1258,11 @@ class MarkPaidDialog(ctk.CTkToplevel):
             values=["Check", "Cash", "Wire Transfer", "Credit Card", "ACH", "Other"],
             variable=self._type_var,
             width=220,
+            fg_color="#1e2d45",
+            button_color="#7e67f5",
+            button_hover_color="#6952d4",
+            dropdown_fg_color="#1a2540",
+            text_color="#ffffff",
         ).pack(anchor="w")
 
         section_label(frame, "PAYMENT DESCRIPTION (optional)").pack(anchor="w", pady=(10, 2))

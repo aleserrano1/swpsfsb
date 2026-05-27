@@ -13,6 +13,7 @@ from ui.widgets import label, button, show_error
 class StartupWindow(ctk.CTkToplevel):
     def __init__(self, master, on_success):
         super().__init__(master)
+        self.configure(fg_color="#262c40")
         self._on_success = on_success
         self.title("Construction Manager — Setup")
         self.geometry("460x340")
@@ -41,17 +42,19 @@ class StartupWindow(ctk.CTkToplevel):
         ctk.CTkLabel(
             self, text="Construction Project Manager",
             font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#ffffff",
         ).pack(pady=(36, 6))
         ctk.CTkLabel(
             self, text="Choose how to connect to a database.",
-            text_color="gray", font=ctk.CTkFont(size=13),
+            text_color="#8292a1", font=ctk.CTkFont(size=13),
         ).pack(pady=(0, 28))
 
         button(self, "Connect to Existing Database", self._connect_existing,
-               width=280, height=42).pack(pady=8)
+               width=280, height=42,
+               fg_color="#1e2d45", hover_color="#263452").pack(pady=8)
         button(self, "Create New Database", self._create_new,
                width=280, height=42,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(pady=8)
+               fg_color="#7e67f5", hover_color="#6952d4").pack(pady=8)
 
     def _connect_existing(self):
         path = fd.askopenfilename(
@@ -114,6 +117,7 @@ class StartupWindow(ctk.CTkToplevel):
 class PinSetupDialog(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self.result = None
         self.title("Set PIN")
         self.geometry("320x240")
@@ -122,12 +126,20 @@ class PinSetupDialog(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self):
-        label(self, "Set a 4-digit PIN", bold=True, size=15).pack(pady=(24, 4))
-        label(self, "This PIN protects proposal re-generation.", size=11, fg="gray").pack(pady=(0, 16))
+        label(self, "Set a 4-digit PIN", bold=True, size=15, fg="#ffffff").pack(pady=(24, 4))
+        label(self, "This PIN protects proposal re-generation.", size=11, fg="#8292a1").pack(pady=(0, 16))
 
-        self._pin1 = ctk.CTkEntry(self, placeholder_text="Enter PIN", show="*", width=180)
+        self._pin1 = ctk.CTkEntry(
+            self, placeholder_text="Enter PIN", show="*", width=180,
+            fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+            corner_radius=10, placeholder_text_color="#8292a1",
+        )
         self._pin1.pack(pady=4)
-        self._pin2 = ctk.CTkEntry(self, placeholder_text="Confirm PIN", show="*", width=180)
+        self._pin2 = ctk.CTkEntry(
+            self, placeholder_text="Confirm PIN", show="*", width=180,
+            fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+            corner_radius=10, placeholder_text_color="#8292a1",
+        )
         self._pin2.pack(pady=4)
 
         button(self, "Set PIN", self._submit, width=140).pack(pady=16)
@@ -149,6 +161,7 @@ class PinEntryDialog(ctk.CTkToplevel):
     """Prompt the user to enter the current PIN."""
     def __init__(self, parent, prompt="Enter PIN to continue:"):
         super().__init__(parent)
+        self.configure(fg_color="#262c40")
         self.result = None
         self.title("PIN Required")
         self.geometry("300x200")
@@ -158,8 +171,12 @@ class PinEntryDialog(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self):
-        label(self, self._prompt, bold=False, size=12).pack(pady=(28, 8))
-        self._pin = ctk.CTkEntry(self, placeholder_text="4-digit PIN", show="*", width=160)
+        label(self, self._prompt, bold=False, size=12, fg="#8292a1").pack(pady=(28, 8))
+        self._pin = ctk.CTkEntry(
+            self, placeholder_text="4-digit PIN", show="*", width=160,
+            fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+            corner_radius=10, placeholder_text_color="#8292a1",
+        )
         self._pin.pack(pady=4)
         button(self, "OK", self._submit, width=100).pack(pady=12)
 

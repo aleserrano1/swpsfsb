@@ -2,7 +2,7 @@
 import customtkinter as ctk
 
 from models.service import add_service, add_subfield
-from ui.widgets import label, entry, button, section_label, show_error
+from ui.widgets import label, entry, button, section_label, textbox, show_error
 
 
 class ServiceFormDialog(ctk.CTkToplevel):
@@ -23,13 +23,14 @@ class ServiceFormDialog(ctk.CTkToplevel):
         self.geometry("420x480")
         self.resizable(False, True)
         self.grab_set()
+        self.configure(fg_color="#262c40")
         self._build_ui()
 
     def _build_ui(self):
-        label(self, self._title_text, bold=True, size=16).pack(pady=(20, 8))
+        label(self, self._title_text, bold=True, size=16, fg="#ffffff").pack(pady=(20, 8))
 
         section_label(self, "DESCRIPTION").pack(anchor="w", padx=24, pady=(4, 2))
-        self._desc = ctk.CTkTextbox(self, width=370, height=80, corner_radius=8)
+        self._desc = textbox(self, width=370, height=80)
         self._desc.pack(padx=24)
 
         section_label(self, "AMOUNT ($)").pack(anchor="w", padx=24, pady=(10, 2))
@@ -44,7 +45,7 @@ class ServiceFormDialog(ctk.CTkToplevel):
                width=70, height=24).pack(side="right")
 
         self._subfields_container = ctk.CTkScrollableFrame(
-            self, height=120, corner_radius=8, fg_color=("gray95", "gray17")
+            self, height=120, corner_radius=8, fg_color="#0d1826"
         )
         self._subfields_container.pack(fill="x", padx=24)
 
@@ -55,7 +56,11 @@ class ServiceFormDialog(ctk.CTkToplevel):
         row = ctk.CTkFrame(self._subfields_container, fg_color="transparent")
         row.pack(fill="x", pady=2)
 
-        e = ctk.CTkEntry(row, placeholder_text="Describe detail...", corner_radius=6)
+        e = ctk.CTkEntry(
+            row, placeholder_text="Describe detail...",
+            corner_radius=10, fg_color="#1b2333", border_color="#7e67f5",
+            border_width=2, placeholder_text_color="#8292a1",
+        )
         e.pack(side="left", fill="x", expand=True, padx=(0, 6))
         if text:
             e.insert(0, text)

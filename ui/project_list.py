@@ -8,7 +8,7 @@ from models.project import all_projects, search, get_financials
 from models.client import clients_for_project
 from pdf.accounts_receivable import generate as generate_ar
 from ui.theme import COLOR_THEMES, COMPANY_LABELS, STATUS_LABELS, STATUS_COLORS
-from ui.widgets import label, button, scrollable_frame, show_error, show_info
+from ui.widgets import label, button, GradientButton, scrollable_frame, show_error, show_info
 
 
 class _ProgressRing(tk.Canvas):
@@ -45,10 +45,14 @@ class ProjectListScreen(ctk.CTkFrame):
         top.pack(fill="x", padx=32, pady=(24, 8))
 
         label(top, "Projects", bold=True, size=22).pack(side="left")
-        button(top, "+ New Project", self.on_new_project, width=140,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(side="right")
-        button(top, "AR Report", self._generate_ar_report, width=100,
-               fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right", padx=(0, 8))
+        GradientButton(
+            top, "+ New Project", self.on_new_project,
+            colors=("#A08DFF", "#7E67F5"), width=152, height=36, corner_radius=18,
+        ).pack(side="right")
+        GradientButton(
+            top, "AR Report", self._generate_ar_report,
+            colors=("#F9B617", "#FD751F"), width=112, height=36, corner_radius=18,
+        ).pack(side="right", padx=(0, 10))
 
         # Search bar
         search_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -61,6 +65,8 @@ class ProjectListScreen(ctk.CTkFrame):
             placeholder_text="Search by project ID, client name, or job site...",
             textvariable=self._search_var,
             width=420, height=36,
+            fg_color="#1b2333", border_color="#7e67f5", border_width=2,
+            corner_radius=10, placeholder_text_color="#8292a1",
         )
         self._search_entry.pack(side="left")
 

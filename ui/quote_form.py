@@ -9,7 +9,7 @@ from models.client import clients_for_project
 from models.settings import get_company_info
 from models.service import services_for_project
 from pdf.proposal import generate as generate_proposal
-from ui.widgets import label, entry, button, section_label, show_error, show_info
+from ui.widgets import label, entry, button, section_label, textbox, show_error, show_info
 
 
 class QuoteFormDialog(ctk.CTkToplevel):
@@ -21,21 +21,22 @@ class QuoteFormDialog(ctk.CTkToplevel):
         self.geometry("480x440")
         self.resizable(False, False)
         self.grab_set()
+        self.configure(fg_color="#262c40")
         self._build_ui()
 
     def _build_ui(self):
-        label(self, "Generate Quote", bold=True, size=16).pack(pady=(20, 4))
-        label(self, "Quote is not stored in the database.", size=11, fg="gray").pack()
+        label(self, "Generate Quote", bold=True, size=16, fg="#ffffff").pack(pady=(20, 4))
+        label(self, "Quote is not stored in the database.", size=11, fg="#8292a1").pack()
 
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=24, pady=8)
 
         section_label(scroll, "GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(8, 2))
-        self._desc = ctk.CTkTextbox(scroll, width=400, height=80, corner_radius=8)
+        self._desc = textbox(scroll, width=400, height=80)
         self._desc.pack(anchor="w")
 
         section_label(scroll, "NOTE (optional)").pack(anchor="w", pady=(10, 2))
-        self._note = ctk.CTkTextbox(scroll, width=400, height=80, corner_radius=8)
+        self._note = textbox(scroll, width=400, height=80)
         self._note.pack(anchor="w")
 
         button(scroll, "Generate & Save Quote", self._generate, width=220,

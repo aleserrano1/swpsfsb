@@ -1,6 +1,7 @@
 """Reusable CTk widget helpers."""
 import tkinter as tk
 import customtkinter as ctk
+from PIL import Image, ImageDraw, ImageTk
 
 
 def label(parent, text, bold=False, size=13, fg=None, **kwargs):
@@ -12,8 +13,19 @@ def label(parent, text, bold=False, size=13, fg=None, **kwargs):
     return ctk.CTkLabel(parent, text=text, **kw)
 
 
+_ENTRY_STYLE = {
+    "fg_color": "#1b2333",
+    "border_color": "#7e67f5",
+    "border_width": 2,
+    "corner_radius": 10,
+    "placeholder_text_color": "#8292a1",
+}
+
+
 def entry(parent, placeholder="", width=260, **kwargs):
-    return ctk.CTkEntry(parent, placeholder_text=placeholder, width=width, **kwargs)
+    kw = {**_ENTRY_STYLE, "placeholder_text": placeholder, "width": width}
+    kw.update(kwargs)
+    return ctk.CTkEntry(parent, **kw)
 
 
 def _phone_validate(new_val: str) -> bool:
@@ -22,10 +34,27 @@ def _phone_validate(new_val: str) -> bool:
 
 def phone_entry(parent, placeholder="Phone number", width=260, **kwargs):
     """CTkEntry that only accepts digit characters (no letters, symbols, or spaces)."""
-    e = ctk.CTkEntry(parent, placeholder_text=placeholder, width=width, **kwargs)
+    kw = {**_ENTRY_STYLE, "placeholder_text": placeholder, "width": width}
+    kw.update(kwargs)
+    e = ctk.CTkEntry(parent, **kw)
     vcmd = (e.register(_phone_validate), '%P')
     e.configure(validate='key', validatecommand=vcmd)
     return e
+
+
+def textbox(parent, width=400, height=80, **kwargs):
+    """Themed CTkTextbox matching the app's dark input style."""
+    kw = {
+        "fg_color": "#1b2333",
+        "border_color": "#7e67f5",
+        "border_width": 2,
+        "corner_radius": 10,
+        "text_color": "#ffffff",
+        "width": width,
+        "height": height,
+    }
+    kw.update(kwargs)
+    return ctk.CTkTextbox(parent, **kw)
 
 
 def button(parent, text, command, width=120, fg_color=None, hover_color=None, **kwargs):
@@ -74,6 +103,88 @@ def ask_yes_no(title, message) -> bool:
     return mb.askyesno(title, message)
 
 
+class GradientButton(tk.Canvas):
+    """Left-to-right PIL gradient button with rounded corners and hover state.
+
+    Renders a smooth gradient onto a PIL image, applies a rounded-rectangle
+    mask, then displays it on a tk.Canvas so CTkButton limitations are bypassed.
+    The *parent_bg* must match the actual rendered background behind the widget
+    so the masked corners blend seamlessly.
+    """
+
+    def __init__(self, parent, text, command,
+                 colors=("#A08DFF", "#7E67F5"),
+                 parent_bg="#262c40",
+                 width=150, height=36, corner_radius=18,
+                 font_size=13):
+        super().__init__(
+            parent, width=width, height=height,
+            bg=parent_bg, highlightthickness=0, bd=0, cursor="hand2",
+        )
+        self._command = command
+        self._colors = colors
+        self._parent_bg = parent_bg
+        # NOTE: _w is reserved by tkinter (Tcl widget path) — use _btn_* prefix
+        self._btn_w = width
+        self._btn_h = height
+        self._btn_cr = corner_radius
+
+        # Keep PIL image refs alive to prevent garbage collection
+        self._pil_normal = self._render(1.0)
+        self._pil_hover  = self._render(0.85)
+        self._photo_normal = ImageTk.PhotoImage(self._pil_normal, master=self)
+        self._photo_hover  = ImageTk.PhotoImage(self._pil_hover,  master=self)
+
+        self._img_id  = self.create_image(0, 0, anchor="nw", image=self._photo_normal)
+        self._text_id = self.create_text(
+            width // 2, height // 2, text=text,
+            fill="white", font=("Segoe UI", font_size, "bold"),
+        )
+
+        self.bind("<Button-1>", self._click)
+        self.bind("<Enter>",    self._hover_on)
+        self.bind("<Leave>",    self._hover_off)
+
+    def _parse(self, hex_color: str) -> tuple:
+        h = hex_color.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+    def _render(self, brightness: float) -> Image.Image:
+        w, h, cr = self._btn_w, self._btn_h, self._btn_cr
+        r1, g1, b1 = self._parse(self._colors[0])
+        r2, g2, b2 = self._parse(self._colors[1])
+        pb = self._parse(self._parent_bg)
+
+        # Base filled with parent background (corners will show this)
+        base = Image.new("RGB", (w, h), pb)
+
+        # Gradient strip covering the full rectangle
+        grad = Image.new("RGB", (w, h))
+        draw = ImageDraw.Draw(grad)
+        for x in range(w):
+            t = x / max(w - 1, 1)
+            r = min(255, int((r1 + (r2 - r1) * t) * brightness))
+            g = min(255, int((g1 + (g2 - g1) * t) * brightness))
+            b = min(255, int((b1 + (b2 - b1) * t) * brightness))
+            draw.line([(x, 0), (x, h - 1)], fill=(r, g, b))
+
+        # Rounded-rectangle mask — white = show gradient, black = show parent bg
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], radius=cr, fill=255)
+        base.paste(grad, mask=mask)
+        return base
+
+    def _click(self, _event=None):
+        if self._command:
+            self._command()
+
+    def _hover_on(self, _event=None):
+        self.itemconfig(self._img_id, image=self._photo_hover)
+
+    def _hover_off(self, _event=None):
+        self.itemconfig(self._img_id, image=self._photo_normal)
+
+
 class AutocompleteEntry(ctk.CTkFrame):
     """CTkEntry with a dropdown suggestion popup backed by a search function.
 
@@ -90,7 +201,10 @@ class AutocompleteEntry(ctk.CTkFrame):
         self._listbox = None
         self._after_id = None
 
-        self._entry = ctk.CTkEntry(self, placeholder_text=placeholder, width=width)
+        self._entry = ctk.CTkEntry(
+            self, placeholder_text=placeholder, width=width,
+            **_ENTRY_STYLE,
+        )
         if phone_mode:
             vcmd = (self._entry.register(_phone_validate), "%P")
             self._entry.configure(validate="key", validatecommand=vcmd)
@@ -162,13 +276,14 @@ class AutocompleteEntry(ctk.CTkFrame):
 
         self._listbox = tk.Listbox(
             self._popup,
-            bg="#2b2b2b",
+            bg="#1b2333",
             fg="white",
-            selectbackground="#4a90d9",
+            selectbackground="#7e67f5",
             selectforeground="white",
             borderwidth=1,
             relief="solid",
-            highlightthickness=0,
+            highlightthickness=1,
+            highlightcolor="#7e67f5",
             font=("Segoe UI", 11),
             activestyle="none",
         )

@@ -32,11 +32,19 @@ class ProjectFormScreen(ctk.CTkFrame):
         scroll.pack(fill="both", expand=True, padx=32, pady=8)
         self._scroll = scroll
 
+        def make_card(parent):
+            card = ctk.CTkFrame(parent, fg_color="#0d1826", corner_radius=16)
+            card.pack(fill="x", pady=(0, 12))
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=16, pady=14)
+            return inner
+
         # Company
-        section_label(scroll, "COMPANY").pack(anchor="w", pady=(8, 2))
+        co_inner = make_card(scroll)
+        section_label(co_inner, "COMPANY").pack(anchor="w", pady=(0, 8))
         self._company_var = ctk.StringVar(value="sfsb")
-        company_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        company_row.pack(anchor="w", pady=(0, 8))
+        company_row = ctk.CTkFrame(co_inner, fg_color="transparent")
+        company_row.pack(anchor="w")
         for code, name in COMPANY_LABELS.items():
             ctk.CTkRadioButton(
                 company_row, text=name,
@@ -44,17 +52,14 @@ class ProjectFormScreen(ctk.CTkFrame):
             ).pack(side="left", padx=(0, 20))
 
         # Job Site
-        section_label(scroll, "JOB SITE").pack(anchor="w", pady=(4, 2))
-        job_site_frame = ctk.CTkFrame(scroll, fg_color=("gray85", "gray25"), corner_radius=6)
-        job_site_frame.pack(anchor="w", pady=(0, 8))
-        js_inner = ctk.CTkFrame(job_site_frame, fg_color="transparent")
-        js_inner.pack(fill="x", padx=8, pady=6)
+        js_inner = make_card(scroll)
+        section_label(js_inner, "JOB SITE").pack(anchor="w", pady=(0, 8))
         self._js_line1 = AutocompleteEntry(js_inner, search_address_line1, placeholder="Address Line 1 *", width=360)
-        self._js_line1.pack(anchor="w", pady=1)
+        self._js_line1.pack(anchor="w", pady=2)
         self._js_line2 = AutocompleteEntry(js_inner, search_address_line2, placeholder="Address Line 2 (optional)", width=360)
-        self._js_line2.pack(anchor="w", pady=1)
+        self._js_line2.pack(anchor="w", pady=2)
         js_city_row = ctk.CTkFrame(js_inner, fg_color="transparent")
-        js_city_row.pack(anchor="w", pady=1)
+        js_city_row.pack(anchor="w", pady=2)
         self._js_city = AutocompleteEntry(js_city_row, search_cities, placeholder="City *", width=190)
         self._js_city.pack(side="left", padx=(0, 6))
         self._js_state = AutocompleteEntry(js_city_row, search_states, placeholder="State *", width=80)
@@ -62,47 +67,56 @@ class ProjectFormScreen(ctk.CTkFrame):
         self._js_zip = AutocompleteEntry(js_city_row, search_zip_codes, placeholder="Zip Code *", width=110)
         self._js_zip.pack(side="left")
 
-        # Tax rate
-        row = ctk.CTkFrame(scroll, fg_color="transparent")
-        row.pack(anchor="w", pady=(4, 8))
-        section_label(row, "TAX RATE (%)").pack(anchor="w")
-        self._tax_rate = entry(row, placeholder="e.g. 8.5", width=120)
+        # Tax Rate
+        tax_inner = make_card(scroll)
+        section_label(tax_inner, "TAX RATE (%)").pack(anchor="w", pady=(0, 8))
+        self._tax_rate = entry(tax_inner, placeholder="e.g. 8.5", width=120)
         self._tax_rate.pack(anchor="w")
 
-        # Color theme
-        section_label(scroll, "COLOR THEME").pack(anchor="w", pady=(8, 4))
+        # Color Theme
+        color_inner = make_card(scroll)
+        section_label(color_inner, "COLOR THEME").pack(anchor="w", pady=(0, 8))
         self._color_var = ctk.StringVar(value="blue")
-        color_row = ctk.CTkFrame(scroll, fg_color="transparent")
-        color_row.pack(anchor="w", pady=(0, 12))
+        color_row = ctk.CTkFrame(color_inner, fg_color="transparent")
+        color_row.pack(anchor="w", pady=(0, 8))
+        self._swatch_frames = {}
         for name, meta in COLOR_THEMES.items():
+            selected = name == self._color_var.get()
             swatch = ctk.CTkFrame(
                 color_row, width=28, height=28,
                 corner_radius=14, fg_color=meta["hex"],
                 cursor="hand2",
+                border_width=3 if selected else 0,
+                border_color="#7e67f5",
             )
             swatch.pack(side="left", padx=3)
             swatch.bind("<Button-1>", lambda e, n=name: self._select_color(n))
-            swatch._color_name = name
+            self._swatch_frames[name] = swatch
         self._swatches = color_row
-        self._selected_swatch_indicator = label(scroll, "Selected: blue", size=11, fg="gray")
-        self._selected_swatch_indicator.pack(anchor="w", pady=(0, 8))
+        self._selected_swatch_indicator = label(color_inner, "Selected: blue", size=11, fg="gray")
+        self._selected_swatch_indicator.pack(anchor="w")
 
         # Clients
-        section_label(scroll, "CLIENTS").pack(anchor="w", pady=(8, 4))
-        self._clients_frame = ctk.CTkFrame(scroll, fg_color="transparent")
+        clients_card = ctk.CTkFrame(scroll, fg_color="#0d1826", corner_radius=16)
+        clients_card.pack(fill="x", pady=(0, 12))
+        clients_inner = ctk.CTkFrame(clients_card, fg_color="transparent")
+        clients_inner.pack(fill="x", padx=16, pady=14)
+        section_label(clients_inner, "CLIENTS").pack(anchor="w", pady=(0, 8))
+        self._clients_frame = ctk.CTkFrame(clients_inner, fg_color="transparent")
         self._clients_frame.pack(fill="x")
-
         self._add_client_block()
-        button(scroll, "+ Add Another Client", self._add_client_block,
-               width=200, fg_color="#555", hover_color="#333").pack(anchor="w", pady=(8, 4))
+        button(clients_inner, "+ Add Another Client", self._add_client_block,
+               width=200, fg_color="#555", hover_color="#333").pack(anchor="w", pady=(10, 0))
 
         # Save button
         button(scroll, "Create Project", self._save, width=180,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(anchor="w", pady=(16, 8))
+               fg_color="#4caf50", hover_color="#2e7d32").pack(anchor="w", pady=(4, 16))
 
     def _select_color(self, name: str):
         self._color_var.set(name)
         self._selected_swatch_indicator.configure(text=f"Selected: {name}")
+        for color_name, swatch in self._swatch_frames.items():
+            swatch.configure(border_width=3 if color_name == name else 0)
 
     def _add_client_block(self):
         idx = len(self._client_frames) + 1
@@ -205,7 +219,7 @@ class ProjectFormScreen(ctk.CTkFrame):
 
 class ClientBlock(ctk.CTkFrame):
     def __init__(self, parent, index: int, on_remove, **kwargs):
-        super().__init__(parent, corner_radius=8, **kwargs)
+        super().__init__(parent, fg_color="#0d1826", corner_radius=16, **kwargs)
         self._on_remove = on_remove
         self._index = index
         self._field_rows = {"names": [], "emails": [], "phones": []}
@@ -277,7 +291,7 @@ class ClientBlock(ctk.CTkFrame):
         self._add_address_block()
 
     def _add_address_block(self):
-        block = ctk.CTkFrame(self._addresses_container, fg_color=("gray85", "gray25"), corner_radius=6)
+        block = ctk.CTkFrame(self._addresses_container, fg_color="#1e2d45", corner_radius=12)
         block.pack(fill="x", pady=3)
 
         inner = ctk.CTkFrame(block, fg_color="transparent")
