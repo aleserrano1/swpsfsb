@@ -149,11 +149,28 @@ class ProjectDetailScreen(ctk.CTkFrame):
                    fg_color="#8e44ad", hover_color="#6a1f82").pack(side="left")
 
         # ── Tabs ─────────────────────────────────────────────────────────────
-        self._tabview = ctk.CTkTabview(self, anchor="w")
+        self._tabview = ctk.CTkTabview(
+            self,
+            anchor="w",
+            fg_color="#262c40",
+            segmented_button_fg_color="#262c40",
+            segmented_button_selected_color="#7e67f5",
+            segmented_button_selected_hover_color="#6952d4",
+            segmented_button_unselected_color="#262c40",
+            segmented_button_unselected_hover_color="#1a2540",
+            text_color="#ffffff",
+            text_color_disabled="#8292a1",
+        )
         self._tabview.pack(fill="both", expand=True, padx=32, pady=12)
         self._tabview.add("Overview")
         self._tabview.add("Services")
         self._tabview.add("Payments")
+
+        self._tabview._segmented_button.configure(
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            corner_radius=12,
+        )
 
         self._build_overview_tab(self._tabview.tab("Overview"))
         self._build_services_tab(self._tabview.tab("Services"))
@@ -166,22 +183,34 @@ class ProjectDetailScreen(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll.pack(fill="both", expand=True)
 
-        # Client info
-        section_label(scroll, "CLIENTS").pack(anchor="w", pady=(8, 4))
-        for i, client in enumerate(self._clients):
-            frame = ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826")
-            frame.pack(fill="x", pady=3)
+        CARD_BG = "#0d1826"
+        CARD_RADIUS = 16
+        PX = 16
+        PY = 12
 
-            card_hdr = ctk.CTkFrame(frame, fg_color="transparent")
-            card_hdr.pack(fill="x", padx=12, pady=(8, 0))
+        # ── Clients card ─────────────────────────────────────────────────
+        clients_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        clients_card.pack(fill="x", pady=(8, 6))
+
+        clients_title_row = ctk.CTkFrame(clients_card, fg_color="transparent")
+        clients_title_row.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(clients_title_row, "CLIENTS").pack(side="left")
+
+        for i, client in enumerate(self._clients):
+            if i > 0:
+                ctk.CTkFrame(clients_card, height=1, fg_color="#1a2540").pack(fill="x", padx=PX, pady=(4, 0))
+
+            client_hdr = ctk.CTkFrame(clients_card, fg_color="transparent")
+            client_hdr.pack(fill="x", padx=PX, pady=(4 if i > 0 else 0, 0))
             if len(self._clients) > 1:
-                label(card_hdr, f"Client {i+1}", bold=True, size=12).pack(side="left")
+                label(client_hdr, f"Client {i+1}", bold=True, size=12).pack(side="left")
             if not is_completed:
-                button(card_hdr, "Edit", lambda c=client: self._open_edit_client(c),
+                button(client_hdr, "Edit", lambda c=client: self._open_edit_client(c),
                        width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
 
-            inner = ctk.CTkFrame(frame, fg_color="transparent")
-            inner.pack(anchor="w", padx=12, pady=(4, 8))
+            is_last = i == len(self._clients) - 1
+            inner = ctk.CTkFrame(clients_card, fg_color="transparent")
+            inner.pack(anchor="w", padx=PX, pady=(2, PY if is_last else 6))
             if client.names:
                 label(inner, ", ".join(client.names), bold=True, size=13).pack(anchor="w")
             for email in client.emails:
@@ -192,55 +221,72 @@ class ProjectDetailScreen(ctk.CTkFrame):
                 for line in _format_address_lines(addr):
                     label(inner, line, size=11, fg="gray").pack(anchor="w")
 
-        # Job site
-        js_hdr = ctk.CTkFrame(scroll, fg_color="transparent")
-        js_hdr.pack(fill="x", pady=(12, 4))
-        section_label(js_hdr, "JOB SITE").pack(side="left")
+        # ── Job Site card ─────────────────────────────────────────────────
+        js_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        js_card.pack(fill="x", pady=6)
+
+        js_title_row = ctk.CTkFrame(js_card, fg_color="transparent")
+        js_title_row.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(js_title_row, "JOB SITE").pack(side="left")
         if not is_completed:
-            button(js_hdr, "Edit", self._open_edit_job_site,
+            button(js_title_row, "Edit", self._open_edit_job_site,
                    width=60, height=24, fg_color="#4a90d9", hover_color="#2c6faf").pack(side="right")
-        ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826").pack(fill="x", pady=2)
+
+        js_body = ctk.CTkFrame(js_card, fg_color="transparent")
+        js_body.pack(anchor="w", padx=PX, pady=(0, PY))
         js_lines = _format_address_lines(self._project.job_site)
         for line in (js_lines or ["—"]):
-            label(scroll, line, size=12).pack(anchor="w", padx=4)
+            label(js_body, line, size=12).pack(anchor="w")
 
-        # Tax rate (editable)
-        section_label(scroll, "TAX RATE (%)").pack(anchor="w", pady=(12, 4))
-        tr_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color="#0d1826")
-        tr_card.pack(fill="x", pady=2)
-        tr_inner = ctk.CTkFrame(tr_card, fg_color="transparent")
-        tr_inner.pack(anchor="w", padx=12, pady=8)
+        # ── Project Details card (tax rate) ───────────────────────────────
+        details_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        details_card.pack(fill="x", pady=6)
+
+        details_title_row = ctk.CTkFrame(details_card, fg_color="transparent")
+        details_title_row.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(details_title_row, "PROJECT DETAILS").pack(side="left")
+
+        details_body = ctk.CTkFrame(details_card, fg_color="transparent")
+        details_body.pack(anchor="w", padx=PX, pady=(0, PY))
+        tax_row = ctk.CTkFrame(details_body, fg_color="transparent")
+        tax_row.pack(anchor="w")
+        label(tax_row, "Tax Rate:", size=12, fg="gray").pack(side="left", padx=(0, 10))
         if is_completed:
-            label(tr_inner, f"{self._project.tax_rate}%", size=12).pack(side="left")
+            label(tax_row, f"{self._project.tax_rate}%", size=12).pack(side="left")
         else:
             self._tax_rate_entry = ctk.CTkEntry(
-                tr_inner, width=100, placeholder_text="e.g. 8.5",
+                tax_row, width=100, placeholder_text="e.g. 8.5",
                 fg_color="#1b2333", border_color="#7e67f5", border_width=2,
                 corner_radius=10, placeholder_text_color="#8292a1",
             )
             self._tax_rate_entry.insert(0, str(self._project.tax_rate))
             self._tax_rate_entry.pack(side="left", padx=(0, 8))
-            button(tr_inner, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
+            button(tax_row, "Update", self._save_tax_rate, width=80, height=28).pack(side="left")
 
-        # Financial summary
-        section_label(scroll, "FINANCIAL SUMMARY").pack(anchor="w", pady=(16, 4))
+        # ── Financial Summary card ────────────────────────────────────────
+        fin_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        fin_card.pack(fill="x", pady=(6, 8))
+
+        fin_title_row = ctk.CTkFrame(fin_card, fg_color="transparent")
+        fin_title_row.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(fin_title_row, "FINANCIAL SUMMARY").pack(side="left")
+
         fin = self._financials
-        rows = [
-            ("Subtotal",       f"${fin['subtotal']:,.2f}"),
+        fin_rows = [
+            ("Subtotal",          f"${fin['subtotal']:,.2f}"),
             (f"Tax ({fin['tax_rate']:.1f}%)", f"${fin['tax']:,.2f}"),
-            ("Project Total",  f"${fin['total']:,.2f}"),
-            ("Down Payment",   f"${self._project.down_payment:,.2f}"),
-            ("Total Paid",     f"${fin['paid']:,.2f}"),
+            ("Project Total",     f"${fin['total']:,.2f}"),
+            ("Total Paid",        f"${fin['paid']:,.2f}"),
             ("Balance Remaining", f"${fin['balance']:,.2f}"),
         ]
-        for i, (lbl_text, val_text) in enumerate(rows):
-            row = ctk.CTkFrame(scroll, corner_radius=8,
-                               fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
-            row.pack(fill="x", pady=1)
-            label(row, lbl_text, size=12, bold=(lbl_text in ("Project Total", "Balance Remaining"))
-                  ).pack(side="left", padx=12, pady=6)
-            label(row, val_text, size=12, bold=(lbl_text in ("Project Total", "Balance Remaining"))
-                  ).pack(side="right", padx=12, pady=6)
+        for i, (lbl_text, val_text) in enumerate(fin_rows):
+            is_bold = lbl_text in ("Project Total", "Balance Remaining")
+            row_bg = "#1a2540" if i % 2 == 0 else "#0f1a2e"
+            row = ctk.CTkFrame(fin_card, corner_radius=8, fg_color=row_bg)
+            row.pack(fill="x", padx=PX, pady=2)
+            label(row, lbl_text, size=12, bold=is_bold).pack(side="left", padx=12, pady=8)
+            label(row, val_text, size=12, bold=is_bold).pack(side="right", padx=12, pady=8)
+        ctk.CTkFrame(fin_card, fg_color="transparent", height=PY).pack()
 
     # ── Services Tab ────────────────────────────────────────────────────────
 
@@ -249,28 +295,32 @@ class ProjectDetailScreen(ctk.CTkFrame):
         is_binding = status == "binding"
         is_completed = status == "completed"
 
+        CARD_BG = "#0d1826"
+        CARD_RADIUS = 16
+        PX = 16
+        PY = 12
+
+        # ── Top action bar ────────────────────────────────────────────────
         top = ctk.CTkFrame(tab, fg_color="transparent")
         top.pack(fill="x", pady=(8, 4))
 
-        add_svc_btn = button(
+        button(
             top, "+ Add Service",
             lambda: self._open_service_form("original_service"),
             width=140,
             fg_color="#4caf50" if not is_binding and not is_completed else "gray",
             hover_color="#2e7d32" if not is_binding and not is_completed else "gray",
             state="normal" if not is_binding and not is_completed else "disabled",
-        )
-        add_svc_btn.pack(side="left", padx=(0, 8))
+        ).pack(side="left", padx=(0, 8))
 
-        add_co_btn = button(
+        button(
             top, "+ Add Change Order",
             lambda: self._open_service_form("order_change"),
             width=170,
             fg_color="#fb8c00" if is_binding else "gray",
             hover_color="#e65100" if is_binding else "gray",
             state="normal" if is_binding else "disabled",
-        )
-        add_co_btn.pack(side="left", padx=(0, 8))
+        ).pack(side="left", padx=(0, 8))
 
         if is_completed:
             hint = "Project is completed — no further service changes allowed."
@@ -280,11 +330,11 @@ class ProjectDetailScreen(ctk.CTkFrame):
             hint = "Change Orders available after marking Binding."
         label(top, hint, size=11, fg="gray").pack(side="left")
 
-        # Down payment (editable)
-        dp_frame = ctk.CTkFrame(tab, corner_radius=12, fg_color="#0d1826")
-        dp_frame.pack(fill="x", pady=(8, 0))
-        dp_inner = ctk.CTkFrame(dp_frame, fg_color="transparent")
-        dp_inner.pack(fill="x", padx=12, pady=8)
+        # ── Down Payment card ─────────────────────────────────────────────
+        dp_card = ctk.CTkFrame(tab, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        dp_card.pack(fill="x", pady=(8, 4))
+        dp_inner = ctk.CTkFrame(dp_card, fg_color="transparent")
+        dp_inner.pack(fill="x", padx=PX, pady=PY)
         section_label(dp_inner, "DOWN PAYMENT ($)").pack(side="left", padx=(0, 10))
         if is_completed:
             label(dp_inner, f"${self._project.down_payment:,.2f}", size=12).pack(side="left")
@@ -299,45 +349,81 @@ class ProjectDetailScreen(ctk.CTkFrame):
             button(dp_inner, "Update", self._save_down_payment,
                    width=80, height=28).pack(side="left")
 
+        # ── Scrollable content ────────────────────────────────────────────
         scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll.pack(fill="both", expand=True, pady=4)
 
         originals = [s for s in self._services if s.type == "original_service"]
         changes = [s for s in self._services if s.type == "order_change"]
 
+        # ── Original Services card ────────────────────────────────────────
+        orig_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        orig_card.pack(fill="x", pady=(4, 6))
+
+        orig_hdr = ctk.CTkFrame(orig_card, fg_color="transparent")
+        orig_hdr.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(orig_hdr, "ORIGINAL SERVICES").pack(side="left")
+
         if originals:
-            section_label(scroll, "ORIGINAL SERVICES").pack(anchor="w", pady=(4, 2))
             for svc in originals:
-                self._service_row(scroll, svc)
+                self._service_row(orig_card, svc)
+        else:
+            label(orig_card, "No original services added yet.", size=11, fg="gray").pack(
+                anchor="w", padx=PX, pady=(0, PY))
+        ctk.CTkFrame(orig_card, fg_color="transparent", height=PY).pack()
+
+        # ── Change Orders card ────────────────────────────────────────────
+        co_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        co_card.pack(fill="x", pady=6)
+
+        co_hdr = ctk.CTkFrame(co_card, fg_color="transparent")
+        co_hdr.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(co_hdr, "CHANGE ORDERS").pack(side="left")
 
         if changes:
-            section_label(scroll, "CHANGE ORDERS").pack(anchor="w", pady=(12, 2))
             for svc in changes:
-                self._service_row(scroll, svc, accent_color="#fb8c00")
+                self._service_row(co_card, svc, accent_color="#fb8c00")
+        else:
+            empty_msg = (
+                "No change orders added yet."
+                if is_binding
+                else "Change Orders available after marking project as Binding."
+            )
+            label(co_card, empty_msg, size=11, fg="gray").pack(
+                anchor="w", padx=PX, pady=(0, PY))
+        ctk.CTkFrame(co_card, fg_color="transparent", height=PY).pack()
 
-        # Totals
+        # ── Totals card ───────────────────────────────────────────────────
         fin = self._financials
-        section_label(scroll, "TOTALS").pack(anchor="w", pady=(16, 4))
+        totals_card = ctk.CTkFrame(scroll, corner_radius=CARD_RADIUS, fg_color=CARD_BG)
+        totals_card.pack(fill="x", pady=(6, 8))
+
+        totals_hdr = ctk.CTkFrame(totals_card, fg_color="transparent")
+        totals_hdr.pack(fill="x", padx=PX, pady=(PY, 8))
+        section_label(totals_hdr, "TOTALS").pack(side="left")
+
         for i, (lbl_text, val_text) in enumerate([
-            ("Subtotal", f"${fin['subtotal']:,.2f}"),
+            ("Subtotal",                f"${fin['subtotal']:,.2f}"),
             (f"Tax ({fin['tax_rate']:.1f}%)", f"${fin['tax']:,.2f}"),
-            ("Total", f"${fin['total']:,.2f}"),
+            ("Total",                   f"${fin['total']:,.2f}"),
         ]):
-            row = ctk.CTkFrame(scroll, corner_radius=8, fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
-            row.pack(fill="x", pady=1)
-            label(row, lbl_text, size=12).pack(side="left", padx=12, pady=5)
-            label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=5)
+            row_bg = "#1a2540" if i % 2 == 0 else "#0f1a2e"
+            row = ctk.CTkFrame(totals_card, corner_radius=8, fg_color=row_bg)
+            row.pack(fill="x", padx=PX, pady=2)
+            label(row, lbl_text, size=12).pack(side="left", padx=12, pady=8)
+            label(row, val_text, size=12, bold=(lbl_text == "Total")).pack(side="right", padx=12, pady=8)
+        ctk.CTkFrame(totals_card, fg_color="transparent", height=PY).pack()
 
     def _service_row(self, parent, svc, accent_color="#4a90d9"):
         is_completed = self._project.status == "completed"
-        hidden_bg = "#111c2c"
-        card = ctk.CTkFrame(parent, corner_radius=12,
-                            fg_color=hidden_bg if svc.is_hidden else "#0d1826")
-        card.pack(fill="x", pady=3)
+        hidden_bg = "#0d1520"
+        card = ctk.CTkFrame(parent, corner_radius=10,
+                            fg_color=hidden_bg if svc.is_hidden else "#131f30")
+        card.pack(fill="x", padx=16, pady=3)
 
         # Header row: description + amount + hide + delete
         header = ctk.CTkFrame(card, fg_color="transparent")
-        header.pack(fill="x", padx=12, pady=(6, 2))
+        header.pack(fill="x", padx=12, pady=(8, 2))
 
         desc_color = "gray" if svc.is_hidden else None
         label(header, svc.description, size=12, fg=desc_color).pack(side="left", anchor="w")
@@ -498,18 +584,26 @@ class ProjectDetailScreen(ctk.CTkFrame):
         for pmt in self._payments:
             self._payment_row(scroll, pmt)
 
-        # Balance summary
+        # Balance summary card
         fin = self._financials
-        section_label(scroll, "BALANCE SUMMARY").pack(anchor="w", pady=(16, 4))
+        bal_card = ctk.CTkFrame(scroll, corner_radius=16, fg_color="#0d1826")
+        bal_card.pack(fill="x", pady=(12, 8))
+
+        bal_hdr = ctk.CTkFrame(bal_card, fg_color="transparent")
+        bal_hdr.pack(fill="x", padx=16, pady=(12, 8))
+        section_label(bal_hdr, "BALANCE SUMMARY").pack(side="left")
+
         for i, (lbl_text, val_text) in enumerate([
             ("Project Total", f"${fin['total']:,.2f}"),
             ("Total Paid",    f"${fin['paid']:,.2f}"),
             ("Balance",       f"${fin['balance']:,.2f}"),
         ]):
-            row = ctk.CTkFrame(scroll, corner_radius=8, fg_color="#1a2540" if i % 2 == 0 else "#0d1826")
-            row.pack(fill="x", pady=1)
-            label(row, lbl_text, size=12).pack(side="left", padx=12, pady=5)
-            label(row, val_text, size=12, bold=(lbl_text == "Balance")).pack(side="right", padx=12, pady=5)
+            row_bg = "#1a2540" if i % 2 == 0 else "#0f1a2e"
+            row = ctk.CTkFrame(bal_card, corner_radius=8, fg_color=row_bg)
+            row.pack(fill="x", padx=16, pady=2)
+            label(row, lbl_text, size=12).pack(side="left", padx=12, pady=8)
+            label(row, val_text, size=12, bold=(lbl_text == "Balance")).pack(side="right", padx=12, pady=8)
+        ctk.CTkFrame(bal_card, fg_color="transparent", height=12).pack()
 
     def _payment_row(self, parent, pmt):
         status_color = "#4caf50" if pmt.status == "paid" else "#fb8c00"
