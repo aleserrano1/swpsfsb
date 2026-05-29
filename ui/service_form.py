@@ -20,37 +20,56 @@ class ServiceFormDialog(ctk.CTkToplevel):
         }
         self._title_text = title_map.get(service_type, "Add Service")
         self.title(self._title_text)
-        self.geometry("420x480")
+        self.geometry("460x560")
         self.resizable(False, True)
         self.grab_set()
         self.configure(fg_color="#262c40")
         self._build_ui()
 
     def _build_ui(self):
-        label(self, self._title_text, bold=True, size=16, fg="#ffffff").pack(pady=(20, 8))
+        label(self, self._title_text, bold=True, size=16, fg="#ffffff").pack(pady=(20, 12))
 
-        section_label(self, "DESCRIPTION").pack(anchor="w", padx=24, pady=(4, 2))
-        self._desc = textbox(self, width=370, height=80)
-        self._desc.pack(padx=24)
+        scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 8))
 
-        section_label(self, "AMOUNT ($)").pack(anchor="w", padx=24, pady=(10, 2))
-        self._amount = entry(self, placeholder="e.g. 1500.00", width=200)
-        self._amount.pack(anchor="w", padx=24)
+        def make_card(parent):
+            card = ctk.CTkFrame(parent, fg_color="#0d1826", corner_radius=16)
+            card.pack(fill="x", pady=(0, 12))
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=16, pady=14)
+            return inner
 
-        # Subfields section
-        subfields_header = ctk.CTkFrame(self, fg_color="transparent")
-        subfields_header.pack(fill="x", padx=24, pady=(14, 2))
+        # Description card
+        desc_inner = make_card(scroll)
+        section_label(desc_inner, "DESCRIPTION").pack(anchor="w", pady=(0, 6))
+        self._desc = textbox(desc_inner, width=370, height=80)
+        self._desc.pack(anchor="w")
+
+        # Amount card
+        amt_inner = make_card(scroll)
+        section_label(amt_inner, "AMOUNT ($)").pack(anchor="w", pady=(0, 6))
+        self._amount = entry(amt_inner, placeholder="e.g. 1500.00", width=200)
+        self._amount.pack(anchor="w")
+
+        # Subfields card
+        sub_card = ctk.CTkFrame(scroll, fg_color="#0d1826", corner_radius=16)
+        sub_card.pack(fill="x", pady=(0, 12))
+        sub_inner = ctk.CTkFrame(sub_card, fg_color="transparent")
+        sub_inner.pack(fill="x", padx=16, pady=14)
+
+        subfields_header = ctk.CTkFrame(sub_inner, fg_color="transparent")
+        subfields_header.pack(fill="x", pady=(0, 8))
         section_label(subfields_header, "SUBFIELDS (optional)").pack(side="left")
         button(subfields_header, "+ Add", self._add_subfield_row,
                width=70, height=24).pack(side="right")
 
         self._subfields_container = ctk.CTkScrollableFrame(
-            self, height=120, corner_radius=8, fg_color="#0d1826"
+            sub_inner, height=120, corner_radius=8, fg_color="#15233a"
         )
-        self._subfields_container.pack(fill="x", padx=24)
+        self._subfields_container.pack(fill="x")
 
-        button(self, "Save", self._save, width=140,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(pady=16)
+        button(scroll, "Save", self._save, width=140,
+               fg_color="#4caf50", hover_color="#2e7d32").pack(pady=(4, 16))
 
     def _add_subfield_row(self, text=""):
         row = ctk.CTkFrame(self._subfields_container, fg_color="transparent")

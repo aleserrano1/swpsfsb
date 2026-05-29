@@ -18,7 +18,7 @@ class QuoteFormDialog(ctk.CTkToplevel):
         self.project_db_id = project_db_id
         self.on_done = on_done
         self.title("Generate Quote")
-        self.geometry("480x440")
+        self.geometry("500x500")
         self.resizable(False, False)
         self.grab_set()
         self.configure(fg_color="#262c40")
@@ -26,21 +26,32 @@ class QuoteFormDialog(ctk.CTkToplevel):
 
     def _build_ui(self):
         label(self, "Generate Quote", bold=True, size=16, fg="#ffffff").pack(pady=(20, 4))
-        label(self, "Quote is not stored in the database.", size=11, fg="#8292a1").pack()
+        label(self, "Quote is not stored in the database.", size=11, fg="#8292a1").pack(pady=(0, 8))
 
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        scroll.pack(fill="both", expand=True, padx=24, pady=8)
+        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 8))
 
-        section_label(scroll, "GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(8, 2))
-        self._desc = textbox(scroll, width=400, height=80)
+        def make_card(parent):
+            card = ctk.CTkFrame(parent, fg_color="#0d1826", corner_radius=16)
+            card.pack(fill="x", pady=(0, 12))
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=16, pady=14)
+            return inner
+
+        # General Description card
+        desc_inner = make_card(scroll)
+        section_label(desc_inner, "GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(0, 6))
+        self._desc = textbox(desc_inner, width=420, height=80)
         self._desc.pack(anchor="w")
 
-        section_label(scroll, "NOTE (optional)").pack(anchor="w", pady=(10, 2))
-        self._note = textbox(scroll, width=400, height=80)
+        # Note card
+        note_inner = make_card(scroll)
+        section_label(note_inner, "NOTE (optional)").pack(anchor="w", pady=(0, 6))
+        self._note = textbox(note_inner, width=420, height=80)
         self._note.pack(anchor="w")
 
         button(scroll, "Generate & Save Quote", self._generate, width=220,
-               fg_color="#4a90d9", hover_color="#2c6faf").pack(pady=20)
+               fg_color="#4a90d9", hover_color="#2c6faf").pack(pady=(4, 16))
 
     def _generate(self):
         desc = self._desc.get("1.0", "end").strip()

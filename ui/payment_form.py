@@ -18,7 +18,7 @@ class PaymentFormDialog(ctk.CTkToplevel):
         self.project_db_id = project_db_id
         self.on_save = on_save
         self.title("Add Invoice")
-        self.geometry("500x680")
+        self.geometry("540x720")
         self.resizable(False, True)
         self.grab_set()
         self.configure(fg_color="#262c40")
@@ -28,30 +28,44 @@ class PaymentFormDialog(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self):
-        label(self, "Add Invoice", bold=True, size=16, fg="#ffffff").pack(pady=(20, 4))
+        label(self, "Add Invoice", bold=True, size=16, fg="#ffffff").pack(pady=(20, 12))
 
         scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        scroll.pack(fill="both", expand=True, padx=24, pady=4)
+        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 8))
 
-        # Amount
-        section_label(scroll, "AMOUNT ($)").pack(anchor="w", pady=(8, 2))
-        self._amount = entry(scroll, placeholder="e.g. 2500.00", width=220)
+        def make_card(parent):
+            card = ctk.CTkFrame(parent, fg_color="#0d1826", corner_radius=16)
+            card.pack(fill="x", pady=(0, 12))
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=16, pady=14)
+            return inner
+
+        # Amount card
+        amt_inner = make_card(scroll)
+        section_label(amt_inner, "AMOUNT ($)").pack(anchor="w", pady=(0, 6))
+        self._amount = entry(amt_inner, placeholder="e.g. 2500.00", width=220)
         self._amount.pack(anchor="w")
         self._amount.bind("<KeyRelease>", self._update_alloc_tracker)
 
-        # Description
-        section_label(scroll, "DESCRIPTION").pack(anchor="w", pady=(10, 2))
-        self._desc = entry(scroll, placeholder="Invoice description", width=400)
+        # Description card
+        desc_inner = make_card(scroll)
+        section_label(desc_inner, "DESCRIPTION").pack(anchor="w", pady=(0, 6))
+        self._desc = entry(desc_inner, placeholder="Invoice description", width=440)
         self._desc.pack(anchor="w")
 
-        # Line item allocations
-        section_label(scroll, "LINE ITEM ALLOCATIONS").pack(anchor="w", pady=(14, 2))
+        # Line item allocations card
+        alloc_card = ctk.CTkFrame(scroll, fg_color="#0d1826", corner_radius=16)
+        alloc_card.pack(fill="x", pady=(0, 12))
+        alloc_inner = ctk.CTkFrame(alloc_card, fg_color="transparent")
+        alloc_inner.pack(fill="x", padx=16, pady=14)
+
+        section_label(alloc_inner, "LINE ITEM ALLOCATIONS").pack(anchor="w", pady=(0, 4))
         label(
-            scroll,
+            alloc_inner,
             "Specify how much of this payment applies to each line item.\n"
             "Total allocated must equal the payment amount.",
             size=11, fg="gray",
-        ).pack(anchor="w", pady=(0, 6))
+        ).pack(anchor="w", pady=(0, 8))
 
         project = get_by_id(self.project_db_id)
         tax_factor = 1 + (project.tax_rate / 100) if project else 1.0
@@ -61,18 +75,17 @@ class PaymentFormDialog(ctk.CTkToplevel):
         ]
 
         if not visible_services:
-            label(scroll, "No visible line items available.", size=11, fg="gray").pack(anchor="w")
+            label(alloc_inner, "No visible line items available.", size=11, fg="gray").pack(anchor="w")
         else:
             for svc in visible_services:
                 svc_taxed = svc.amount * tax_factor
                 remaining = svc_taxed - service_total_allocated(svc.id)
                 self._alloc_remaining[svc.id] = remaining
-                self._build_alloc_row(scroll, svc, remaining, svc_taxed)
+                self._build_alloc_row(alloc_inner, svc, remaining, svc_taxed)
 
-        # Running total tracker
-        tracker_frame = ctk.CTkFrame(scroll, fg_color="#0d1826", corner_radius=12)
-        tracker_frame.pack(fill="x", pady=(10, 4))
-        tracker_inner = ctk.CTkFrame(tracker_frame, fg_color="transparent")
+        tracker_row = ctk.CTkFrame(alloc_inner, fg_color="#15233a", corner_radius=10)
+        tracker_row.pack(fill="x", pady=(10, 0))
+        tracker_inner = ctk.CTkFrame(tracker_row, fg_color="transparent")
         tracker_inner.pack(fill="x", padx=12, pady=8)
         label(tracker_inner, "Allocated:", size=12).pack(side="left")
         self._tracker_label = ctk.CTkLabel(
@@ -86,20 +99,21 @@ class PaymentFormDialog(ctk.CTkToplevel):
         )
         self._tracker_status.pack(side="left", padx=(10, 0))
 
-        # Invoice description / note
-        section_label(scroll, "INVOICE GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(12, 2))
-        self._inv_desc = textbox(scroll, width=420, height=60)
+        # Invoice details card (general description + note together)
+        details_inner = make_card(scroll)
+        section_label(details_inner, "INVOICE GENERAL DESCRIPTION (optional)").pack(anchor="w", pady=(0, 6))
+        self._inv_desc = textbox(details_inner, width=440, height=60)
         self._inv_desc.pack(anchor="w")
 
-        section_label(scroll, "INVOICE NOTE (optional)").pack(anchor="w", pady=(10, 2))
-        self._inv_note = textbox(scroll, width=420, height=60)
+        section_label(details_inner, "INVOICE NOTE (optional)").pack(anchor="w", pady=(12, 6))
+        self._inv_note = textbox(details_inner, width=440, height=60)
         self._inv_note.pack(anchor="w")
 
         button(scroll, "Save & Generate Invoice", self._save, width=220,
-               fg_color="#4caf50", hover_color="#2e7d32").pack(pady=16)
+               fg_color="#4caf50", hover_color="#2e7d32").pack(pady=(4, 16))
 
     def _build_alloc_row(self, parent, svc, remaining: float, svc_taxed: float):
-        card = ctk.CTkFrame(parent, corner_radius=12, fg_color="#0d1826")
+        card = ctk.CTkFrame(parent, corner_radius=12, fg_color="#15233a")
         card.pack(fill="x", pady=3)
 
         top_row = ctk.CTkFrame(card, fg_color="transparent")
